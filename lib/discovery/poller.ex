@@ -4,7 +4,7 @@ defmodule Discovery.Poller do
   """
 
   use GenServer
-  import Consul.Handler.Base, only: [consul_index: 1]
+  import Consul.Response, only: [consul_index: 1]
 
   def start_link(service) when is_binary(service) do
     GenServer.start_link(__MODULE__, [service])
