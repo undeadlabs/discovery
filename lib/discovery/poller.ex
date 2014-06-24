@@ -12,28 +12,27 @@ defmodule Discovery.Poller do
     GenServer.start_link(__MODULE__, [service])
   end
 
+  def start_link(service, handlers) when is_binary(service) and is_list(handlers) do
+    GenServer.start_link(__MODULE__, [service, handlers])
+  end
+
+  def start_link(service, handler) when is_binary(service) and is_atom(handler) do
+    GenServer.start_link(__MODULE__, [service, [handler]])
+  end
+
   @spec async_poll(binary | integer, binary) :: Task.t
   def async_poll(index, service) do
     Task.async(__MODULE__, :poll, [index, service])
   end
 
-  def add_handler(poller, module) when is_pid(poller) and is_atom(module) do
-    GenServer.call(poller, {:add_handler, module})
+  @spec add_handler(pid, atom | {atom, list}) :: :ok
+  def add_handler(poller, handler) when is_pid(poller) do
+    GenServer.call(poller, {:add_handler, handler})
   end
 
   @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
   def poll(index, service) do
     Consul.Health.service(index, service)
-  end
-
-  @spec subscribe(pid, atom, pid) :: :ok
-  def subscribe(poller, module, subscriber) when is_pid(poller) and is_atom(module) and is_pid(subscriber) do
-    GenServer.call(poller, {:subscribe, module, subscriber})
-  end
-
-  @spec unsubscribe(pid, atom, pid) :: :ok
-  def unsubscribe(poller, module, subscriber) when is_pid(poller) and is_atom(module) and is_pid(subscriber) do
-    GenServer.call(poller, {:unsubscribe, module, subscriber})
   end
 
   #
@@ -49,9 +48,21 @@ defmodule Discovery.Poller do
   # GenServer callbacks
   #
 
-  def init([service]) do
+  def init([service, handlers]) do
     {:ok, em} = GenEvent.start_link
+
+    Enum.each(handlers, fn
+      {module, args} ->
+        :ok = GenEvent.add_handler(em, module, args)
+      module ->
+        :ok = GenEvent.add_handler(em, module, [])
+    end)
+
     {:ok, %{em: em, service: service, services: [], index: nil, task: nil}, 0}
+  end
+
+  def init([service]) do
+    init([service, []])
   end
 
   # Seed node-service data and begin polling
@@ -77,7 +88,7 @@ defmodule Discovery.Poller do
   def handle_info({ref, results}, %{task: %Task{ref: ref}} = state) do
     case results do
       {:ok, %{body: body} = response} ->
-        case Discovery.Node.build(body) do
+        case Discovery.Service.from_health(body) do
           [] = result ->
             new_services = result
           services ->
@@ -102,17 +113,14 @@ defmodule Discovery.Poller do
     {:noreply, %{state | task: nil, index: nil}, @retry_ms}
   end
 
-  def handle_call({:add_handler, module}, _from, %{em: em, services: services} = state) do
-    :ok = GenEvent.add_handler(em, module, [])
-    {:reply, GenEvent.sync_notify(em, {:services, services}), state}
-  end
+  def handle_call({:add_handler, handler}, _from, %{em: em, services: services} = state) do
+    case handler do
+      {module, args} ->
+        :ok = GenEvent.add_handler(em, module, args)
+      module ->
+        :ok = GenEvent.add_handler(em, module, [])
+    end
 
-  def handle_call({:subscribe, module, subscriber}, _from, %{em: em, services: services} = state) do
-    :ok = GenEvent.add_handler(em, {module, subscriber}, [], link: true)
     {:reply, GenEvent.sync_notify(em, {:services, services}), state}
-  end
-
-  def handle_call({:unsubscribe, module, subscriber}, _from, %{em: em} = state) do
-    {:reply, GenEvent.remove_handler(em, {module, subscriber}, []), state}
   end
 end
