@@ -10,8 +10,14 @@ defmodule Discovery.Mixfile do
   end
 
   def application do
-    [applications: [:consul],
-     mod: {Discovery, []}]
+    [
+      mod: {Discovery, []},
+      applications: [:consul],
+      registered: [:node_connector],
+      env: [
+        retry_connect_ms: 5000
+      ]
+    ]
   end
 
   defp deps do
