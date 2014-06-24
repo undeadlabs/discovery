@@ -6,13 +6,11 @@ defmodule Discovery.Handler.NodeConnect do
 
   def update_services([]), do: :ok
   def update_services([%Discovery.Service{status: @passing} = service|rest]) do
-    case node_name(service) do
-      Node.self ->
-        update_services(rest)
-      name ->
-        connect(name)
-        update_services(rest)
+    name = node_name(service)
+    unless name == Node.self do
+      connect(name)
     end
+    update_services(rest)
   end
   def update_services([%Discovery.Service{status: _}|rest]), do: update_services(rest)
 
