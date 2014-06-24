@@ -18,14 +18,40 @@ defmodule Discovery.NodeConnector do
   # Private
   #
 
-  defp attempt_connect(node, retry_ms) do
+  defp attempt_connect(node, %{retry_ms: retry_ms, nodes: nodes} = state) do
     case Node.connect(node) do
-      false ->
-        timer = :erlang.send_after(retry_ms, self, {:retry_connect, node})
-        {:error, timer}
-      result ->
-        result
+      result when result in [false, :ignored] ->
+        timer     = :erlang.send_after(retry_ms, self, {:retry_connect, node})
+        new_nodes = Dict.put(nodes, node, timer)
+      true ->
+        case Dict.fetch(nodes, node) do
+          {:ok, nil} ->
+            :ok
+          :error ->
+            Node.monitor(node, true)
+          {:ok, timer} ->
+            Node.monitor(node, true)
+            :erlang.cancel_timer(timer)
+        end
+        new_nodes = Dict.put(nodes, node, nil)
     end
+
+    %{state | nodes: new_nodes}
+  end
+
+  defp attempt_disconnect(node, %{nodes: nodes} = state) do
+    case Dict.pop(nodes, node) do
+      {nil, new_nodes} ->
+        new_nodes = new_nodes
+      {timer, new_nodes} ->
+        :erlang.cancel_timer(timer)
+        new_nodes = new_nodes
+    end
+
+    Node.monitor(node, false)
+    Node.disconnect(node)
+
+    %{state | nodes: new_nodes}
   end
 
   #
@@ -33,38 +59,31 @@ defmodule Discovery.NodeConnector do
   #
 
   def init([]) do
-    {:ok, %{retry_ms: Application.get_env(:discovery, :retry_connect_ms), timers: %{}}}
+    {:ok, %{retry_ms: Application.get_env(:discovery, :retry_connect_ms), nodes: %{}}}
   end
 
-  def handle_call({:connect, node}, _from, %{retry_ms: retry_ms, timers: timers} = state) do
-    case attempt_connect(node, retry_ms) do
-      {:error, timer} ->
-        new_timers = Dict.put(timers, node, timer)
-        {:reply, :retrying, %{state | timers: new_timers}}
-      result ->
-        {:reply, result, state}
-    end
+  def handle_call({:connect, node}, _from, state) do
+    new_state = attempt_connect(node, state)
+    {:reply, :ok, new_state}
   end
 
-  def handle_call({:disconnect, node}, _from, %{timers: timers} = state) do
-    case Dict.fetch(timers, node) do
-      {:ok, timer} ->
-        :erlang.cancel_timer(timer)
-      _ ->
-        :ok
-    end
-
-    {:reply, Node.disconnect(node), state}
+  def handle_call({:disconnect, node}, _from, state) do
+    new_state = attempt_disconnect(node, state)
+    {:reply, :ok, new_state}
   end
 
-  def handle_info({:retry_connect, node}, %{timers: timers, retry_ms: retry_ms} = state) do
-    case attempt_connect(node, retry_ms) do
-      {:error, timer} ->
-        new_timers = Dict.put(timers, node, timer)
-      _ ->
-        new_timers = Dict.delete(timers, node)
-    end
+  def handle_info({:retry_connect, node}, state) do
+    new_state = attempt_connect(node, state)
+    {:noreply, new_state}
+  end
 
-    {:noreply, %{state | timers: new_timers}}
+  def handle_info({:nodedown, node}, %{nodes: nodes} = state) do
+    case Dict.fetch(nodes, node) do
+      {:ok, _} ->
+        new_state = attempt_connect(node, state)
+        {:noreply, new_state}
+      :error ->
+        {:noreply, state}
+    end
   end
 end
