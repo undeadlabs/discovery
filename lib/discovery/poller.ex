@@ -12,14 +12,18 @@ defmodule Discovery.Poller do
     GenServer.start_link(__MODULE__, [service])
   end
 
-  @spec async_poll(pid, binary | integer, binary) :: Task.t
-  def async_poll(poller, index, service) do
-    Task.async(__MODULE__, :poll, [poller, index, service])
+  @spec async_poll(binary | integer, binary) :: Task.t
+  def async_poll(index, service) do
+    Task.async(__MODULE__, :poll, [index, service])
   end
 
-  @spec poll(pid, binary | integer, binary) :: :ok
-  def poll(poller, index, service) do
-    Consul.Catalog.service(index, service)
+  def add_handler(poller, module) when is_pid(poller) and is_atom(module) do
+    GenServer.call(poller, {:add_handler, module})
+  end
+
+  @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
+  def poll(index, service) do
+    Consul.Health.service(index, service)
   end
 
   @spec subscribe(pid, atom, pid) :: :ok
@@ -36,9 +40,9 @@ defmodule Discovery.Poller do
   # Private
   #
 
-  defp notify_change(nodes, %{nodes: nodes}), do: :ok
-  defp notify_change(nodes, %{em: em}) do
-    GenEvent.notify(em, {:nodes, nodes})
+  defp notify_change(services, %{services: services}), do: :ok
+  defp notify_change(services, %{em: em}) do
+    GenEvent.sync_notify(em, {:services, services})
   end
 
   #
@@ -47,22 +51,22 @@ defmodule Discovery.Poller do
 
   def init([service]) do
     {:ok, em} = GenEvent.start_link
-    {:ok, %{em: em, service: service, nodes: [], index: nil, task: nil}, 0}
+    {:ok, %{em: em, service: service, services: [], index: nil, task: nil}, 0}
   end
 
   # Seed node-service data and begin polling
   def handle_info(:timeout, %{service: service, index: nil} = state) do
-    case Consul.Catalog.service(service) do
+    case Consul.Health.service(service) do
       {:ok, %{body: body} = response} ->
-        case Discovery.Node.build(body) do
+        case Discovery.Service.from_health(body) do
           [] = result ->
-            new_nodes = result
-          nodes ->
-            new_nodes = nodes
+            new_services = result
+          services ->
+            new_services = services
         end
-        :ok       = notify_change(new_nodes, state)
-        new_state = %{state | nodes: new_nodes, index: consul_index(response)}
-        task      = async_poll(self, new_state.index, service)
+        :ok       = notify_change(new_services, state)
+        new_state = %{state | services: new_services, index: consul_index(response)}
+        task      = async_poll(new_state.index, service)
         {:noreply, %{new_state | task: task}}
       {:error, _} ->
         {:noreply, state, @retry_ms}
@@ -75,12 +79,12 @@ defmodule Discovery.Poller do
       {:ok, %{body: body} = response} ->
         case Discovery.Node.build(body) do
           [] = result ->
-            new_nodes = result
-          nodes ->
-            new_nodes = nodes
+            new_services = result
+          services ->
+            new_services = services
         end
-        :ok       = notify_change(new_nodes, state)
-        new_state = %{state | nodes: new_nodes, index: consul_index(response)}
+        :ok       = notify_change(new_services, state)
+        new_state = %{state | services: new_services, index: consul_index(response)}
         {:noreply, new_state}
       {:error, _} ->
         new_state = %{state | index: nil}
@@ -90,7 +94,7 @@ defmodule Discovery.Poller do
 
   # Poller completed
   def handle_info({:DOWN, ref, _, _, :normal}, %{service: service, index: index, task: %Task{ref: ref}} = state) do
-    {:noreply, %{state | task: async_poll(self, index, service)}}
+    {:noreply, %{state | task: async_poll(index, service)}}
   end
 
   # Poller crashed
@@ -98,9 +102,14 @@ defmodule Discovery.Poller do
     {:noreply, %{state | task: nil, index: nil}, @retry_ms}
   end
 
-  def handle_call({:subscribe, module, subscriber}, _from, %{em: em, nodes: nodes} = state) do
+  def handle_call({:add_handler, module}, _from, %{em: em, services: services} = state) do
+    :ok = GenEvent.add_handler(em, module, [])
+    {:reply, GenEvent.sync_notify(em, {:services, services}), state}
+  end
+
+  def handle_call({:subscribe, module, subscriber}, _from, %{em: em, services: services} = state) do
     :ok = GenEvent.add_handler(em, {module, subscriber}, [], link: true)
-    {:reply, GenEvent.notify(em, {:nodes, nodes}), state}
+    {:reply, GenEvent.sync_notify(em, {:services, services}), state}
   end
 
   def handle_call({:unsubscribe, module, subscriber}, _from, %{em: em} = state) do

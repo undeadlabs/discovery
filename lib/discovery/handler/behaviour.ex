@@ -10,12 +10,12 @@ defmodule Discovery.Handler.Behaviour do
       # GenEvent callbacks
       #
 
-      def handle_event({:nodes, nodes}, state) do
-        update_nodes(nodes)
+      def handle_event({:services, services}, state) do
+        update_services(services)
         {:ok, state}
       end
     end
   end
 
-  defcallback update_nodes(nodes :: [Discovery.Node.t])
+  defcallback update_services(services :: [Discovery.Service.t])
 end
