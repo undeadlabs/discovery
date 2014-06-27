@@ -13,7 +13,7 @@ defmodule Discovery.Mixfile do
     [
       mod: {Discovery, []},
       applications: [:consul],
-      registered: [:node_connector],
+      registered: [Discovery.NodeConnector],
       env: [
         retry_connect_ms: 5000
       ]

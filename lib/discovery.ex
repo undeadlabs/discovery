@@ -11,4 +11,9 @@ defmodule Discovery do
     opts = [strategy: :one_for_one, name: Discovery.Supervisor]
     Supervisor.start_link(children, opts)
   end
+
+  defdelegate [
+    nodes(),
+    nodes(service)
+  ], to: Discovery.NodeConnector
 end
