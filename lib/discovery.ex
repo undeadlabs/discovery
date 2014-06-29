@@ -5,7 +5,8 @@ defmodule Discovery do
     import Supervisor.Spec, warn: false
 
     children = [
-      worker(Discovery.NodeConnector, [])
+      worker(Discovery.Directory, []),
+      worker(Discovery.NodeConnector, []),
     ]
 
     opts = [strategy: :one_for_one, name: Discovery.Supervisor]
@@ -14,6 +15,7 @@ defmodule Discovery do
 
   defdelegate [
     nodes(),
-    nodes(service)
-  ], to: Discovery.NodeConnector
+    nodes(service),
+    services(),
+  ], to: Discovery.Directory
 end

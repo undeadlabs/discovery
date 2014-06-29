@@ -2,6 +2,8 @@ Code.ensure_compiled(Discovery.Service)
 
 defmodule Discovery.NodeConnector do
   use GenServer
+  alias Discovery.Directory
+
   @name Discovery.NodeConnector
 
   def start_link do
@@ -14,14 +16,6 @@ defmodule Discovery.NodeConnector do
 
   def disconnect(node) when is_atom(node) do
     GenServer.call(@name, {:disconnect, node})
-  end
-
-  def nodes do
-    GenServer.call(@name, :nodes)
-  end
-
-  def nodes(service) when is_binary(service) do
-    GenServer.call(@name, {:nodes, service})
   end
 
   #
@@ -81,7 +75,11 @@ defmodule Discovery.NodeConnector do
   #
 
   def init([]) do
-    {:ok, %{retry_ms: Application.get_env(:discovery, :retry_connect_ms), nodes: %{}, timers: %{}, services: %{}}}
+    nodes    = %{} # Discovery.Directory.nodes
+    services = %{} # Discovery.Directory.services
+    retry_ms = Application.get_env(:discovery, :retry_connect_ms, 5000)
+
+    {:ok, %{retry_ms: retry_ms, timers: %{}, nodes: nodes, services: services}}
   end
 
   def handle_call({:connect, node, service}, _from, %{nodes: nodes, services: services} = state) do
@@ -105,21 +103,6 @@ defmodule Discovery.NodeConnector do
   def handle_call({:disconnect, node}, _from, state) do
     new_state = attempt_disconnect(node, state)
     {:reply, :ok, new_state}
-  end
-
-  def handle_call(:nodes, _, %{nodes: nodes} = state) do
-    {:reply, Dict.keys(nodes), state}
-  end
-
-  def handle_call({:nodes, service}, _, %{services: services} = state) do
-    case Dict.fetch(services, service) do
-      {:ok, nodes} ->
-        nodes = :sets.to_list(nodes)
-      :error ->
-        nodes = []
-    end
-
-    {:reply, nodes, state}
   end
 
   def handle_info({:retry_connect, node}, state) do
