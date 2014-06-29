@@ -41,7 +41,7 @@ defmodule Discovery.NodeConnector do
     %{state | timers: new_timers}
   end
 
-  defp attempt_disconnect(node, %{timers: timers, nodes: nodes, services: services} = state) do
+  defp attempt_disconnect(node, %{timers: timers} = state) do
     case Dict.pop(timers, node) do
       {nil, new_timers} ->
         new_timers = new_timers
@@ -50,22 +50,11 @@ defmodule Discovery.NodeConnector do
         new_timers = new_timers
     end
 
-    case Dict.pop(nodes, node) do
-      {nil, new_nodes} ->
-        new_nodes = new_nodes
-      {service, new_nodes} ->
-        new_nodes    = new_nodes
-        new_services = :sets.del_element(service, services)
-
-        if new_services |> :sets.to_list |> Enum.empty? do
-          new_services = Dict.delete(services, service)
-        end
-    end
-
     Node.monitor(node, false)
     Node.disconnect(node)
+    :ok = Directory.drop(node)
 
-    %{state | nodes: new_nodes, timers: new_timers, services: new_services}
+    %{state | timers: new_timers}
   end
 
   #
@@ -73,28 +62,18 @@ defmodule Discovery.NodeConnector do
   #
 
   def init([]) do
-    nodes    = Directory.nodes
-    services = Directory.services
     retry_ms = Application.get_env(:discovery, :retry_connect_ms, 5000)
-
-    {:ok, %{retry_ms: retry_ms, timers: %{}, nodes: nodes, services: services}}
+    {:ok, %{retry_ms: retry_ms, timers: %{}}}
   end
 
-  def handle_call({:connect, node, service}, _from, %{nodes: nodes, services: services} = state) do
-    case Dict.fetch(nodes, node) do
-      {:ok, nil} ->
-        case Dict.fetch(services, service) do
-          {:ok, nil} ->
-            new_services = Dict.put(services, service, :sets.from_list([node]))
-          {:ok, nodes} ->
-            new_services = Dict.put(services, service, :sets.add_element(node, nodes))
-        end
-
-        new_nodes = Dict.put(nodes, node, service)
-        new_state = attempt_connect(node, %{state | nodes: new_nodes, services: new_services})
-        {:reply, :ok, new_state}
-      {:ok, _} ->
+  def handle_call({:connect, node, service}, _from, state) do
+    case Directory.has_node?(node) do
+      true ->
         {:reply, :ok, state}
+      false ->
+        :ok       = Directory.add(node, service)
+        new_state = attempt_connect(node, state)
+        {:reply, :ok, new_state}
     end
   end
 
@@ -108,12 +87,12 @@ defmodule Discovery.NodeConnector do
     {:noreply, new_state}
   end
 
-  def handle_info({:nodedown, node}, %{nodes: nodes} = state) do
-    case Dict.fetch(nodes, node) do
-      {:ok, _} ->
+  def handle_info({:nodedown, node}, state) do
+    case Directory.has_node?(node) do
+      true ->
         new_state = attempt_connect(node, state)
         {:noreply, new_state}
-      :error ->
+      false ->
         {:noreply, state}
     end
   end
