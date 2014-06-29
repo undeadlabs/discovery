@@ -93,14 +93,14 @@ defmodule Discovery.Directory do
   @doc """
   List all nodes which provide the given service.
   """
-  @spec nodes(binary) :: Set.t
+  @spec nodes(binary) :: list
   def nodes(service) when is_binary(service) do
     Agent.get(@name, fn(%{services: services}) ->
       case Map.fetch(services, service) do
         :error ->
-          HashSet.new
+          []
         {:ok, nodes} ->
-          nodes
+          Set.to_list(nodes)
       end
     end)
   end
