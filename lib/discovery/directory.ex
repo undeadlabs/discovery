@@ -1,4 +1,9 @@
 defmodule Discovery.Directory do
+  @moduledoc """
+  A registered process that contains the state of known nodes and the services
+  that they provide.
+  """
+
   use GenServer
   @name Discovery.Directory
 
@@ -9,7 +14,8 @@ defmodule Discovery.Directory do
   @doc """
   Add a node and the service it provides to the directory.
   """
-  def add(node, service) do
+  @spec add(atom, binary) :: :ok
+  def add(node, service) when is_atom(node) and is_binary(service) do
     Agent.update(@name, fn(%{nodes: nodes, services: services} = state) ->
       case Dict.fetch(services, service) do
         :error ->
@@ -32,6 +38,7 @@ defmodule Discovery.Directory do
   @doc """
   Clear all registered nodes from the directory.
   """
+  @spec clear :: :ok
   def clear do
     Agent.update(@name, fn(_) ->
       %{nodes: %{}, services: %{}}
@@ -41,13 +48,14 @@ defmodule Discovery.Directory do
   @doc """
   Drop a node from the directory.
   """
-  def drop(node) do
+  @spec drop(atom) :: :ok
+  def drop(node) when is_atom(node) do
     Agent.update(@name, fn(%{nodes: nodes, services: services} = state) ->
       case Dict.pop(nodes, node) do
         {nil, new_nodes} ->
           new_nodes    = new_nodes
           new_services = services
-        {node_services, new_nodes} ->
+        {_, new_nodes} ->
           new_nodes    = new_nodes
           new_services = Enum.reduce(services, %{}, fn({key, value}, acc) ->
             new_set = Set.delete(value, node)
@@ -67,20 +75,30 @@ defmodule Discovery.Directory do
   @doc """
   List all nodes and the services they provide.
   """
+  @spec nodes :: Set.t
   def nodes do
     Agent.get(@name, fn(%{nodes: nodes}) -> nodes end)
   end
 
   @doc """
-  List all nodes which provide a given service.
+  List all nodes which provide the given service.
   """
+  @spec nodes(binary) :: Set.t
   def nodes(service) when is_binary(service) do
-    GenServer.call(@name, {:nodes, service})
+    Agent.get(@name, fn(%{services: services}) ->
+      case Map.fetch(services, service) do
+        :error ->
+          HashSet.new
+        {:ok, nodes} ->
+          nodes
+      end
+    end)
   end
 
   @doc """
   List all services and the nodes which provide them.
   """
+  @spec services :: Set.t
   def services do
     Agent.get(@name, fn(%{services: services}) -> services end)
   end

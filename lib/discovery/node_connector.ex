@@ -1,5 +1,3 @@
-Code.ensure_compiled(Discovery.Service)
-
 defmodule Discovery.NodeConnector do
   use GenServer
   alias Discovery.Directory
@@ -75,8 +73,8 @@ defmodule Discovery.NodeConnector do
   #
 
   def init([]) do
-    nodes    = %{} # Discovery.Directory.nodes
-    services = %{} # Discovery.Directory.services
+    nodes    = Directory.nodes
+    services = Directory.services
     retry_ms = Application.get_env(:discovery, :retry_connect_ms, 5000)
 
     {:ok, %{retry_ms: retry_ms, timers: %{}, nodes: nodes, services: services}}
