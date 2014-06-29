@@ -37,7 +37,7 @@ defmodule Discovery do
         fun.({:error, {:no_servers, service}})
       service_nodes ->
         # JW TODO: determine best server instead of picking first one
-        fun.({:ok, Enum.first(service_nodes)})
+        fun.({:ok, List.first(service_nodes)})
     end
   end
 end
