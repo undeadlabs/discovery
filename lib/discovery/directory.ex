@@ -73,6 +73,16 @@ defmodule Discovery.Directory do
   end
 
   @doc """
+  Checks if node exists within the Directory.
+  """
+  @spec has_node?(atom) :: boolean
+  def has_node?(node) when is_atom(node) do
+    Agent.get(@name, fn(%{nodes: nodes}) ->
+      Map.has_key?(nodes, node)
+    end)
+  end
+
+  @doc """
   List all nodes and the services they provide.
   """
   @spec nodes :: Set.t

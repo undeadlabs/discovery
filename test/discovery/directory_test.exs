@@ -130,4 +130,11 @@ defmodule Discovery.DirectoryTest do
     nodes = Directory.nodes("something")
     assert Enum.count(nodes) == 0
   end
+
+  test "has_node?" do
+    Directory.add(:'reset@undead', "router")
+
+    assert Directory.has_node?(:'reset@undead')
+    refute Directory.has_node?(:'reset-2@undead')
+  end
 end
