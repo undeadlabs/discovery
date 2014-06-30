@@ -19,7 +19,6 @@ defmodule Discovery.Mixfile do
       ],
       env: [
         retry_connect_ms: 5000,
-        enable_consul: true,
         replica_count: 128,
       ]
     ]

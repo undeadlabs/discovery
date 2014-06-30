@@ -32,8 +32,8 @@ defmodule Discovery.Heartbeat do
   def init([check_id, interval]) do
     case service_name(check_id) do
       {:ok, service} ->
-        :ok = Discovery.Directory.add(node, service)
-        {:ok, %{timer: nil, check_id: check_id, interval: interval}, 0}
+        :ok = Discovery.Directory.add(Node.self, service)
+        {:ok, %{timer: nil, check_id: check_id, interval: interval, service: service}, 0}
       error ->
         {:stop, error}
     end
@@ -54,5 +54,10 @@ defmodule Discovery.Heartbeat do
     send_pulse(check_id)
     new_timer = :erlang.send_after(interval, self, :pulse)
     {:noreply, %{state | timer: new_timer}}
+  end
+
+  def terminate(_, %{service: service} = state) do
+    Discovery.Directory.drop(Node.self, service)
+    :ok
   end
 end
