@@ -13,11 +13,30 @@ defmodule Discovery.Heartbeat do
   end
 
   #
+  # Private API
+  #
+
+  defp service_name(check_id) when is_binary(check_id) do
+    case String.split(check_id, "service:") do
+      ["", name] ->
+        {:ok, name}
+      _ ->
+        {:error, :invalid_check_id}
+    end
+  end
+
+  #
   # GenServer callbacks
   #
 
   def init([check_id, interval]) do
-    {:ok, %{timer: nil, check_id: check_id, interval: interval}, 0}
+    case service_name(check_id) do
+      {:ok, service} ->
+        :ok = Discovery.Directory.add(node, service)
+        {:ok, %{timer: nil, check_id: check_id, interval: interval}, 0}
+      error ->
+        {:stop, error}
+    end
   end
 
   def handle_info(:timeout, %{check_id: check_id, interval: interval} = state) do
