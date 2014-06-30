@@ -54,7 +54,7 @@ defmodule Discovery.Directory do
   @spec drop(atom) :: :ok
   def drop(node) when is_atom(node) do
     Agent.update(@name, fn(%{nodes: nodes, services: services} = state) ->
-      case Discovery.Ring.drop(services, node) do
+      case Discovery.Ring.drop(Map.keys(services), node) do
         :ok ->
           case Dict.pop(nodes, node) do
             {nil, new_nodes} ->
@@ -66,6 +66,7 @@ defmodule Discovery.Directory do
                 new_set = Set.delete(value, node)
                 case Enum.empty?(new_set) do
                   true ->
+                    :ok = Discovery.Ring.destroy(key)
                     acc
                   false ->
                     Map.put(acc, key, new_set)
