@@ -17,30 +17,33 @@ defmodule Discovery.Directory do
   @spec add(atom, binary) :: :ok
   def add(node, service) when is_atom(node) and is_binary(service) do
     Agent.update(@name, fn(%{nodes: nodes, services: services} = state) ->
-      case Dict.fetch(services, service) do
-        :error ->
-          new_services = Dict.put(services, service, HashSet.new |> Set.put(node))
-        {:ok, nodes} ->
-          new_services = Dict.put(services, service, Set.put(nodes, node))
-      end
+      case Discovery.Ring.add(service, node) do
+        :ok ->
+          case Dict.fetch(services, service) do
+            :error ->
+              new_services = Dict.put(services, service, HashSet.new |> Set.put(node))
+            {:ok, nodes} ->
+              new_services = Dict.put(services, service, Set.put(nodes, node))
+          end
 
-      case Dict.fetch(nodes, node) do
-        :error ->
-          new_nodes = Dict.put(nodes, node, HashSet.new |> Set.put(service))
-        {:ok, node_services} ->
-          new_nodes = Dict.put(nodes, node, Set.put(node_services, service))
-      end
+          case Dict.fetch(nodes, node) do
+            :error ->
+              new_nodes = Dict.put(nodes, node, HashSet.new |> Set.put(service))
+            {:ok, node_services} ->
+              new_nodes = Dict.put(nodes, node, Set.put(node_services, service))
+          end
 
-      %{state | nodes: new_nodes, services: new_services}
+          %{state | nodes: new_nodes, services: new_services}
+        _ ->
+          state
+      end
     end)
   end
 
-  @doc """
-  Clear all registered nodes from the directory.
-  """
-  @spec clear :: :ok
+  @doc false
   def clear do
-    Agent.update(@name, fn(_) ->
+    Agent.update(@name, fn(%{nodes: nodes}) ->
+      Map.keys(nodes) |> Enum.each(&Discovery.Ring.drop/1)
       %{nodes: %{}, services: %{}}
     end)
   end
@@ -51,25 +54,43 @@ defmodule Discovery.Directory do
   @spec drop(atom) :: :ok
   def drop(node) when is_atom(node) do
     Agent.update(@name, fn(%{nodes: nodes, services: services} = state) ->
-      case Dict.pop(nodes, node) do
-        {nil, new_nodes} ->
-          new_nodes    = new_nodes
-          new_services = services
-        {_, new_nodes} ->
-          new_nodes    = new_nodes
-          new_services = Enum.reduce(services, %{}, fn({key, value}, acc) ->
-            new_set = Set.delete(value, node)
-            case Enum.empty?(new_set) do
-              true ->
-                acc
-              false ->
-                Map.put(acc, key, new_set)
-            end
-          end)
-      end
+      case Discovery.Ring.drop(services, node) do
+        :ok ->
+          case Dict.pop(nodes, node) do
+            {nil, new_nodes} ->
+              new_nodes    = new_nodes
+              new_services = services
+            {_, new_nodes} ->
+              new_nodes    = new_nodes
+              new_services = Enum.reduce(services, %{}, fn({key, value}, acc) ->
+                new_set = Set.delete(value, node)
+                case Enum.empty?(new_set) do
+                  true ->
+                    acc
+                  false ->
+                    Map.put(acc, key, new_set)
+                end
+              end)
+          end
 
-      %{state | nodes: new_nodes, services: new_services}
+          %{state | nodes: new_nodes, services: new_services}
+        _ ->
+          state
+      end
     end)
+  end
+
+  @doc """
+  Find a node running service hashed by hash.
+  """
+  @spec find(binary, binary) :: {:ok, node} | {:error, term}
+  def find(service, hash) do
+    case Discovery.Ring.find(service, hash) do
+      {:error, _} ->
+        {:error, :no_servers}
+      {:ok, _} = result ->
+        result
+    end
   end
 
   @doc """

@@ -6,6 +6,7 @@ defmodule Discovery do
 
     children = [
       worker(Discovery.Directory, []),
+      worker(Discovery.Ring, []),
       worker(Discovery.NodeConnector, []),
     ]
 
@@ -15,6 +16,7 @@ defmodule Discovery do
 
   defdelegate [
     nodes(service),
+    find(service, hash),
   ], to: Discovery.Directory
 
   @doc """
@@ -31,13 +33,12 @@ defmodule Discovery do
     end
   end
 
-  def select(service, _hash, fun) when is_binary(service) and is_function(fun) do
-    case nodes(service) do
-      [] ->
+  def select(service, hash, fun) when is_binary(service) and is_function(fun) do
+    case find(service, hash) do
+      {:error, _} ->
         fun.({:error, {:no_servers, service}})
-      service_nodes ->
-        # JW TODO: determine best server instead of picking first one
-        fun.({:ok, List.first(service_nodes)})
+      {:ok, _} = result ->
+        fun.(result)
     end
   end
 end

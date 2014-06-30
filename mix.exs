@@ -15,18 +15,21 @@ defmodule Discovery.Mixfile do
       applications: [:consul],
       registered: [
         Discovery.Directory,
+        Discovery.Ring,
         Discovery.NodeConnector,
       ],
       env: [
         retry_connect_ms: 5000,
         enable_consul: true,
+        replica_count: 128,
       ]
     ]
   end
 
   defp deps do
     [
-      {:consul, git: "git@github.com:undeadlabs/consul-ex.git"}
+      {:consul, git: "git@github.com:undeadlabs/consul-ex.git"},
+      {:hash_ring, github: "chrismoos/hash-ring"},
     ]
   end
 end
