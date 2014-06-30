@@ -6,7 +6,6 @@ defmodule Discovery do
 
     children = [
       worker(Discovery.Directory, []),
-      worker(Discovery.Ring, []),
       worker(Discovery.NodeConnector, []),
     ]
 
