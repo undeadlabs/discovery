@@ -27,7 +27,7 @@ defmodule Discovery.Mixfile do
   defp deps do
     [
       {:consul, git: "git@github.com:undeadlabs/consul-ex.git"},
-      {:hash_ring_ex, github: "reset/hash-ring-ex"},
+      {:hash_ring_ex, "~> 1.0"},
     ]
   end
 end
