@@ -4,7 +4,7 @@ defmodule Discovery.Mixfile do
   def project do
     [app: :discovery,
      version: "0.0.1",
-     elixir: "~> 0.13.3",
+     elixir: "~> 0.13",
      config_path: "config/#{Mix.env}.exs",
      deps: deps]
   end
@@ -12,7 +12,10 @@ defmodule Discovery.Mixfile do
   def application do
     [
       mod: {Discovery, []},
-      applications: [:consul],
+      applications: [
+        :consul,
+        :hash_ring_ex,
+      ],
       registered: [
         Discovery.Directory,
         Discovery.NodeConnector,
