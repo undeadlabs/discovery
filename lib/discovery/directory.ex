@@ -88,7 +88,7 @@ defmodule Discovery.Directory do
 
   def stop_ring(%Discovery.Ring{pid: pid, ref: ref}) do
     Process.demonitor(ref, [:flush])
-    :ok = Discovery.Ring.stop(pid)
+    Discovery.Ring.stop(pid)
   end
 
   #
@@ -126,8 +126,7 @@ defmodule Discovery.Directory do
     {:reply, :ok, %{state | nodes: new_nodes, services: new_services, rings: Dict.put(rings, service, ring)}}
   end
 
-  def handle_call(:clear, _, %{nodes: nodes, rings: rings}) do
-    Map.keys(nodes) |> Enum.each(&Discovery.Ring.drop/1)
+  def handle_call(:clear, _, %{rings: rings}) do
     Enum.each(rings, fn({_, ring}) -> stop_ring(ring) end)
     {:reply, :ok, %{nodes: %{}, services: %{}, rings: %{}}}
   end
