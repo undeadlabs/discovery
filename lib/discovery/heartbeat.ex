@@ -56,7 +56,7 @@ defmodule Discovery.Heartbeat do
     {:noreply, %{state | timer: new_timer}}
   end
 
-  def terminate(_, %{service: service} = state) do
+  def terminate(_, %{service: service}) do
     Discovery.Directory.drop(Node.self, service)
     :ok
   end
