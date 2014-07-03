@@ -3,11 +3,9 @@ defmodule Discovery.DirectoryTest do
   alias Discovery.Directory
 
   setup do
-    Directory.clear
-  end
-
-  teardown do
-    Directory.clear
+    on_exit fn ->
+      Directory.clear
+    end
   end
 
   test "services are empty" do

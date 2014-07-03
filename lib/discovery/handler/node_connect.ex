@@ -20,6 +20,6 @@ defmodule Discovery.Handler.NodeConnect do
   end
 
   defp node_name(%Discovery.Service{name: service, node: %Discovery.Node{name: node}}) do
-    binary_to_atom("#{service}@#{node}")
+    String.to_atom("#{service}@#{node}")
   end
 end
