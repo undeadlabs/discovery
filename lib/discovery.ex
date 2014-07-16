@@ -22,6 +22,7 @@ defmodule Discovery do
   Select a node providing the given service and run the run fun with that node.
   """
   @spec select(binary, atom | binary, function) :: term | {:error, {:no_servers, binary}}
+  def select(service, hash, fun) when is_atom(service), do: select(Atom.to_string(service), hash, fun)
   def select(service, :random, fun) when is_binary(service) and is_function(fun) do
     case nodes(service) do
       [] ->
