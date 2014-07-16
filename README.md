@@ -1,6 +1,6 @@
 # Discovery
 
-An Elixir library for auto discovering Erlang nodes with Consul
+An Elixir library for auto discovering Erlang nodes with [Consul](http://www.consul.io)
 
 ## Requirements
 
@@ -23,6 +23,127 @@ end
 ```
 
 Then run `mix deps.get` in your shell to fetch the dependencies.
+
+## Usage
+
+There are two parts for automatically interconnecting services.
+
+  * Services need to publish their status
+  * Services which care about others need to poll for the statuses of the services they care about
+
+### Publishing service status
+
+First, you'll need to install a [Consul Agent](http://www.consul.io/docs/agent/basics.html) on the machine which will be running the OTP application. This can be done manually, but I recommend the [Consul Cookbook](https://github.com/johnbellone/consul-cookbook) for [Chef](http://getchef.com).
+
+Next a [service definition](http://www.consul.io/docs/agent/services.html) must be defined with a TTL for an application to report it's status to.
+
+```json
+{
+  "service": {
+    "name": "my_application",
+    "check": {
+      "ttl": "15s"
+    }
+  }
+}
+```
+
+The TTL acts as a [dead man's trigger](https://www.youtube.com/watch?v=GyDEbV3zblA) where the service will be marked as unavailable if the OTP application hasn't sent a heartbeat within the allotted TTL.
+
+Start and supervise a `Discovery.Heartbeat` process in your OTP application to report your status to Consul.
+
+```elixir
+defmodule MyApplication.Supervisor do
+  use Supervisor
+
+  @heartbeat_check "service:my_application"
+  @heartbeat_ttl   10
+
+  def start_link do
+    Supervisor.start_link(__MODULE__, [])
+  end
+
+  def init([]) do
+    children = [
+      worker(Discovery.Heartbeat, [@heartbeat_check, @heartbeat_ttl]),
+    ]
+    supervise(children, strategy: :one_for_one)
+  end
+end
+```
+
+The value for `@heartbeat_check` is composed of two strings separated by a colon:
+
+  * The first string is the type of check that we're reporting our status for; in this case a service.
+  * The second string is the name of the check which was defined in the service definition above.
+
+The value for `@heartbeat_ttl` a time in seconds for how often to check-in with Consul. I recommend setting this to a few seconds before the TTL configured in the service definition to allow for some breathing room and prevent false service outage blips.
+
+### Polling for services
+
+The flipside for broadcasting service status is listening for service status. For that, Discovery provides a poller process that can be started and supervised.
+
+```elixir
+defmodule MyApplication.Supervisor do
+  use Supervisor
+
+  def start_link do
+    Supervisor.start_link(__MODULE__, [])
+  end
+
+  def init([]) do
+    children = [
+      worker(Discovery.Poller, ["my_application", Discovery.Handler.NodeConnect], id: MyApplication.MyPoller),
+    ]
+    supervise(children, strategy: :one_for_one)
+  end
+end
+```
+
+The poller process will poll the given service health check and upon change, notify a handler process implementing `Discovery.Handler.Behaviour`. One or many handlers can be passed to the poller. In the above example a single handler, `Discovery.Handler.NodeConnector`, is registered with the poller.
+
+> If you are supervising multiple pollers it is important to specify a value for `:id`. Not doing so will halt startup. This can be safely ignored if you do not intend to supervise more than one poller.
+
+### Automatically connecting nodes
+
+In the previous section I showed you how to start and supervise a `Discovery.Poller` process. This process started and registered the handler `Discovery.Handler.NodeConnector`. The node connector handler will notify the registered `Discovery.NodeConnector` process of additional nodes and service status changes.
+
+The `Discovery.NodeConnector` process will automatically connect and retry connections to other nodes when they become available. It will also sever connections when Consul reports those nodes as being no longer available.
+
+`Node.connect/1` will be be run for each registered service found by Consul. The OTP node name for each node found is assumed to be the name of the service and the FQDN of the host machine. So given the node name `my_application@jamie.undeadlabs.com` it can be assumed that the service definition was named `my_application` and the Consul Agent is running on a host machine with the FQDN of `jamie.undeadlabs.com`.
+
+> Ensure that the --name flag is set to the proper node name before starting your OTP application. This can be set in the `vm.args` file or passed to Elixir on the command line.
+
+### Selecting nodes
+
+Nodes which have been automatically discovered and connected to via `Discovery.NodeConnector` can be filtered or selected via a hash value.
+
+Listing all registered nodes which provide the given service:
+
+```Elixir
+iex> Discovery.nodes("my_application")
+[:'my_application@jamie.undeadlabs.com']
+
+iex> Discovery.nodes("another_application")
+[]
+```
+
+Selecting a node for a given hash value using a consistent hashing algorithm:
+
+```Elixir
+Discovery.select("my_application", "hashValue", fn
+  {:ok, node} ->
+    # do something with node
+  {:error, {:no_servers, "my_application"}} ->
+    # do something with error
+end)
+```
+
+A node can also be randomly selected if the atom `:random` is passed as the hash value:
+
+```Elixir
+Discovery.select("my_application", :random, fn(result) -> IO.inspect result end)
+```
 
 ## Authors
 
