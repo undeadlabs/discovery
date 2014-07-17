@@ -32,10 +32,12 @@ defmodule Discovery.Handler.NodeConnect do
   """
 
   use Discovery.Handler.Behaviour
+
   @passing "passing"
   @critical "critical"
   @warning "warning"
 
+  @spec update_services([Discovery.Service.t]) :: :ok
   def update_services([]), do: :ok
   def update_services([%Discovery.Service{status: @critical}|rest]), do: update_services(rest)
   def update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do

@@ -12,16 +12,19 @@ defmodule Discovery.Poller do
   use GenServer
   import Consul.Response, only: [consul_index: 1]
 
+  @type handler :: atom | {atom, list}
+
   @retry_ms 5000
 
+  @spec start_link(binary) :: GenServer.on_start
   def start_link(service) when is_binary(service) do
     GenServer.start_link(__MODULE__, [service])
   end
 
+  @spec start_link(binary, handler | [handler]) :: GenServer.on_start
   def start_link(service, handlers) when is_binary(service) and is_list(handlers) do
     GenServer.start_link(__MODULE__, [service, handlers])
   end
-
   def start_link(service, handler) when is_binary(service) and is_atom(handler) do
     GenServer.start_link(__MODULE__, [service, [handler]])
   end
@@ -31,9 +34,9 @@ defmodule Discovery.Poller do
     Task.async(__MODULE__, :poll, [index, service])
   end
 
-  @spec add_handler(pid, atom | {atom, list}) :: :ok
-  def add_handler(poller, handler) when is_pid(poller) do
-    GenServer.call(poller, {:add_handler, handler})
+  @spec add_handler(pid, handler) :: :ok
+  def add_handler(poller, handler, args \\ []) when is_pid(poller) do
+    GenServer.call(poller, {:add_handler, handler, args})
   end
 
   @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
@@ -119,14 +122,8 @@ defmodule Discovery.Poller do
     {:noreply, %{state | task: nil, index: nil}, @retry_ms}
   end
 
-  def handle_call({:add_handler, handler}, _from, %{em: em, services: services} = state) do
-    case handler do
-      {module, args} ->
-        :ok = GenEvent.add_handler(em, module, args)
-      module ->
-        :ok = GenEvent.add_handler(em, module, [])
-    end
-
+  def handle_call({:add_handler, module, args}, _from, %{em: em, services: services} = state) do
+    :ok = GenEvent.add_handler(em, module, args)
     {:reply, GenEvent.sync_notify(em, {:services, services}), state}
   end
 end

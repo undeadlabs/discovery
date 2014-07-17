@@ -9,18 +9,19 @@ defmodule Discovery.Heartbeat do
 
   @retry_ms 5000
 
+  @spec start_link(binary, integer) :: GenServer.on_start
   def start_link(check_id, interval) do
     GenServer.start_link(__MODULE__, [check_id, interval])
-  end
-
-  def send_pulse(check_id) do
-    {result, _} = Consul.Agent.Check.pass(check_id)
-    result
   end
 
   #
   # Private API
   #
+
+  defp send_pulse(check_id) do
+    {result, _} = Consul.Agent.Check.pass(check_id)
+    result
+  end
 
   defp service_name(check_id) when is_binary(check_id) do
     case String.split(check_id, ":", parts: 2) do

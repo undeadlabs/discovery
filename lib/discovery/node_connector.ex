@@ -23,7 +23,7 @@ defmodule Discovery.NodeConnector do
   Connect to the given node and register it in the `Discovery.Directory` for providing
   the given service.
   """
-  @spec connect(atom, binary) :: :ok
+  @spec connect(atom | binary, binary) :: :ok
   def connect(node, service) when is_binary(node), do: connect(String.to_atom(node), service)
   def connect(node, service) when is_atom(node) and is_binary(service) do
     GenServer.call(@name, {:connect, node, service})
@@ -32,7 +32,7 @@ defmodule Discovery.NodeConnector do
   @doc """
   Disconnect from the given node and remove it from the `Discovery.Directory`.
   """
-  @spec disconnect(atom) :: :ok
+  @spec disconnect(atom | binary) :: :ok
   def disconnect(node) when is_binary(node), do: disconnect(String.to_atom(node))
   def disconnect(node) when is_atom(node) do
     GenServer.call(@name, {:disconnect, node})

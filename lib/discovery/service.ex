@@ -8,14 +8,14 @@ defmodule Discovery.Service do
   defstruct name: nil :: binary,
     port: nil :: integer,
     status: nil :: binary,
-    tags: [] :: list,
+    tags: [] :: [binary],
     node: nil :: Discovery.Node.t
 
   @doc """
   Build a `Discovery.Service` struct, or a list of `Discovery.Service` structs, from a list
   of health checks or a health check returned by `Consul.Health.service/1`.
   """
-  @spec from_health(list | map) :: list | Discovery.Service.t
+  @spec from_health([map] | map) :: [Discovery.Service.t] | Discovery.Service.t
   def from_health([]), do: []
   def from_health(checks) when is_list(checks), do: Enum.map(checks, &from_health/1)
   def from_health(%{"Node" => node, "Checks" => checks, "Service" => service}) do
