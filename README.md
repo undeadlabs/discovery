@@ -43,7 +43,10 @@ Next a [service definition](http://www.consul.io/docs/agent/services.html) must 
     "name": "my_application",
     "check": {
       "ttl": "15s"
-    }
+    },
+    "tags": [
+      "otp_name:my_application@jamie.undeadlabs.com"
+    ]
   }
 }
 ```
@@ -79,6 +82,8 @@ The value for `@heartbeat_check` is composed of two strings separated by a colon
 
 The value for `@heartbeat_ttl` a time in seconds for how often to check-in with Consul. I recommend setting this to a few seconds before the TTL configured in the service definition to allow for some breathing room and prevent false service outage blips.
 
+If you want other OTP nodes to automatically discover and connect to you (more on that later) it is also important to note that a special tag has been added to the service definition above. Tags separated by a colon (`:`) are key/value pairs used by certain handlers. In this case the `Discovery.NodeConnector` will use the value of this key/value pair as the OTP node name to connect to another OTP node.
+
 ### Polling for services
 
 The flipside for broadcasting service status is listening for service status. For that, Discovery provides a poller process that can be started and supervised.
@@ -110,7 +115,7 @@ In the previous section I showed you how to start and supervise a `Discovery.Pol
 
 The `Discovery.NodeConnector` process will automatically connect and retry connections to other nodes when they become available. It will also sever connections when Consul reports those nodes as being no longer available.
 
-`Node.connect/1` will be be run for each registered service found by Consul. The OTP node name for each node found is assumed to be the name of the service and the FQDN of the host machine. So given the node name `my_application@jamie.undeadlabs.com` it can be assumed that the service definition was named `my_application` and the Consul Agent is running on a host machine with the FQDN of `jamie.undeadlabs.com`.
+`Node.connect/1` will be be run for each registered service found by Consul. The OTP node name for each of these nodes is read from a tag written to the service definition (see above) in the form of `otp_name:<name>` where name is the OTP node name. So given the node name `my_application@jamie.undeadlabs.com` the service definition would contain a tag `otp_name:my_application@jamie.undeadlabs.com`.
 
 > Ensure that the --name flag is set to the proper node name before starting your OTP application. This can be set in the `vm.args` file or passed to Elixir on the command line.
 
