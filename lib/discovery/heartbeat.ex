@@ -17,8 +17,8 @@ defmodule Discovery.Heartbeat do
   #
 
   defp service_name(check_id) when is_binary(check_id) do
-    case String.split(check_id, "service:") do
-      ["", name] ->
+    case String.split(check_id, ":", parts: 2) do
+      ["service", name] ->
         {:ok, name}
       _ ->
         {:error, :invalid_check_id}
