@@ -1,4 +1,9 @@
 defmodule Discovery.NodeConnector do
+  @moduledoc """
+  Connects to and monitors connections to nodes. The connection will be retried until it
+  is established or it is explicitly disconnected by calling `NodeConnector.disconnect/1`.
+  """
+
   use GenServer
   alias Discovery.Directory
 
@@ -8,10 +13,19 @@ defmodule Discovery.NodeConnector do
     GenServer.start_link(__MODULE__, [], name: @name)
   end
 
+  @doc """
+  Connect to the given node and register it in the `Discovery.Directory` for providing
+  the given service.
+  """
+  @spec connect(atom, binary) :: :ok
   def connect(node, service) when is_atom(node) and is_binary(service) do
     GenServer.call(@name, {:connect, node, service})
   end
 
+  @doc """
+  Disconnect from the given node and remove it from the `Discovery.Directory`.
+  """
+  @spec disconnect(atom) :: :ok
   def disconnect(node) when is_atom(node) do
     GenServer.call(@name, {:disconnect, node})
   end
