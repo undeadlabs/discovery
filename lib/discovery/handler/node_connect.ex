@@ -57,6 +57,13 @@ defmodule Discovery.Handler.NodeConnect do
   end
 
   defp otp_name(%{tags: []}), do: nil
-  defp otp_name(%{tags: tags}) when is_list(tags), do: Keyword.get(tags, :otp_name)
+  defp otp_name(%{tags: tags}) when is_list(tags) do
+    case Keyword.get(tags, :otp_name) do
+      nil ->
+        nil
+      name ->
+        String.to_atom(name)
+    end
+  end
   defp otp_name(_), do: nil
 end
