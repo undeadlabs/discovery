@@ -1,3 +1,9 @@
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2014 Undead Labs, LLC
+#
+
 defmodule Discovery.NodeConnector do
   @moduledoc """
   Connects to and monitors connections to nodes. The connection will be retried until it

@@ -1,3 +1,9 @@
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2014 Undead Labs, LLC
+#
+
 defmodule Discovery.Handler.NodeConnect do
   @moduledoc """
   A poller handler which will instruct the `Discovery.NodeConnector` to attempt to

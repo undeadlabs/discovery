@@ -1,6 +1,6 @@
 # Discovery
 
-An Elixir library for auto discovering Erlang nodes with [Consul](http://www.consul.io)
+An OTP application for auto-discovering services with [Consul](http://www.consul.io)
 
 ## Requirements
 

@@ -1,3 +1,9 @@
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2014 Undead Labs, LLC
+#
+
 defmodule Discovery.Service do
   defstruct name: nil :: binary,
     port: nil :: integer,

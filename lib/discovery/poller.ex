@@ -1,3 +1,9 @@
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2014 Undead Labs, LLC
+#
+
 defmodule Discovery.Poller do
   @moduledoc """
   Notifies subscribers of node availability within Consul for a particular service.

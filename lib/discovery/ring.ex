@@ -1,3 +1,9 @@
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2014 Undead Labs, LLC
+#
+
 defmodule Discovery.Ring do
   @moduledoc """
   Manages a consistent hash ring of Erlang nodes for a discovered service.
