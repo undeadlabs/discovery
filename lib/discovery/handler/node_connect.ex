@@ -34,7 +34,6 @@ defmodule Discovery.Handler.NodeConnect do
   use Discovery.Handler.Behaviour
 
   @passing "passing"
-  @critical "critical"
   @warning "warning"
 
   def handle_services(services, state) do
@@ -67,9 +66,9 @@ defmodule Discovery.Handler.NodeConnect do
   defp otp_name(_), do: nil
 
   defp update_services([]), do: :ok
-  defp update_services([%Discovery.Service{status: @critical}|rest]), do: update_services(rest)
   defp update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do
     connect(service)
     update_services(rest)
   end
+  defp update_services([%Discovery.Service{status: _}|rest]), do: update_services(rest)
 end
