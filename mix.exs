@@ -45,6 +45,7 @@ defmodule Discovery.Mixfile do
 
   defp package do
     %{licenses: ["MIT"],
+      contributors: ["Jamie Winsor"],
       links: %{"Github" => "https://github.com/undeadlabs/discovery"}}
   end
 end
