@@ -109,9 +109,53 @@ The poller process will poll the given service health check and upon change, not
 
 > If you are supervising multiple pollers it is important to specify a value for `:id`. Not doing so will halt startup. This can be safely ignored if you do not intend to supervise more than one poller.
 
-### Automatically connecting nodes
+#### Poller handler
 
-In the previous section I showed you how to start and supervise a `Discovery.Poller` process. This process started and registered the handler `Discovery.Handler.NodeConnector`. The node connector handler will notify the registered `Discovery.NodeConnector` process of additional nodes and service status changes.
+In the previous section we passed the module `Discovery.Handler.NodeConnect` as an argument to `Discovery.Poller` when we supervised the poller. This is a poller handler.
+
+Poller handlers implement the behaviour `Discovery.Handler.Behaviour` which requires a single function to be implemented, `handle_services/2`. This function is called whenever the poller completes and passes the services it found when performing a health check as the first argument. The second argument is the state of the event handler.
+
+> `Discovery.Handler.Behaviour` is actually using `GenEvent` under the hood
+
+Discovery comes with two handlers
+
+  * `Discovery.Handler.NodeConnector` - automatically connects OTP nodes which have been discovered by a poller
+  * `Discovery.Handler.Generic` - executes an anonymous function with an arity of 1 with the found services
+
+Multiple handlers can be added and they can be added with or without arguments:
+
+```elixir
+def init([]) do
+  children = [
+    worker(Discovery.Poller, ["my_application", [
+      Discovery.Handler.NodeConnect,
+      {MyApplication.MyHandler, ["argument_1", "argument_2"]}
+    ], id: MyApplication.MyPoller),
+  ]
+  supervise(children, strategy: :one_for_one)
+end
+```
+
+An anonymous function can also act as a handler:
+
+```elixir
+def init([]) do
+  children = [
+    worker(Discovery.Poller, ["my_application", &my_function/1], id: MyApplication.MyPoller)
+  ]
+  supervise(children, strategy: :one_for_one)
+end
+
+def my_function(services) do
+  # do something
+end
+```
+
+> The generic handler `Discovery.Handler.Generic` is used under the hood if you provide an anonymous function as a handler.
+
+### Automatically connecting nodes (Handler.NodeConnect)
+
+The node connector handler `Discovery.Handler.NodeConnect` will notify the registered `Discovery.NodeConnector` process of additional nodes and service status changes.
 
 The `Discovery.NodeConnector` process will automatically connect and retry connections to other nodes when they become available. It will also sever connections when Consul reports those nodes as being no longer available.
 
