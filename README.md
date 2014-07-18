@@ -17,7 +17,7 @@ end
 
 defp deps do
   [
-    {:discovery, git: "git@github.com:undeadlabs/discovery.git"}
+    {:discovery, "~> 0.1.0"}
   ]
 end
 ```
