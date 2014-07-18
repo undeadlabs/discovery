@@ -37,16 +37,13 @@ defmodule Discovery.Handler.NodeConnect do
   @critical "critical"
   @warning "warning"
 
-  @spec update_services([Discovery.Service.t]) :: :ok
-  def update_services([]), do: :ok
-  def update_services([%Discovery.Service{status: @critical}|rest]), do: update_services(rest)
-  def update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do
-    connect(service)
-    update_services(rest)
+  def handle_services(services, state) do
+    :ok = update_services(services)
+    {:ok, state}
   end
 
   #
-  # Private API
+  # Private
   #
 
   defp connect(%Discovery.Service{name: name} = service) do
@@ -68,4 +65,11 @@ defmodule Discovery.Handler.NodeConnect do
     end
   end
   defp otp_name(_), do: nil
+
+  defp update_services([]), do: :ok
+  defp update_services([%Discovery.Service{status: @critical}|rest]), do: update_services(rest)
+  defp update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do
+    connect(service)
+    update_services(rest)
+  end
 end

@@ -12,7 +12,7 @@ defmodule Discovery.Poller do
   use GenServer
   import Consul.Response, only: [consul_index: 1]
 
-  @type handler :: atom | {atom, list}
+  @type handler :: atom | {atom, list} | (([Discovery.Service.t]) -> any)
 
   @retry_ms 5000
 
@@ -63,6 +63,8 @@ defmodule Discovery.Poller do
     Enum.each(handlers, fn
       {module, args} ->
         :ok = GenEvent.add_handler(em, module, args)
+      fun when is_function(fun, 1) ->
+        :ok = GenEvent.add_handler(em, Discovery.Handler.Generic, [fun])
       module ->
         :ok = GenEvent.add_handler(em, module, [])
     end)
