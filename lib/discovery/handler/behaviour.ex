@@ -17,11 +17,10 @@ defmodule Discovery.Handler.Behaviour do
       #
 
       def handle_event({:services, services}, state) do
-        update_services(services)
-        {:ok, state}
+        handle_services(services, state)
       end
     end
   end
 
-  defcallback update_services(services :: [Discovery.Service.t])
+  defcallback handle_services(services :: [Discovery.Service.t], state :: term)
 end
