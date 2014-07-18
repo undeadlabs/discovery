@@ -25,7 +25,7 @@ defmodule Discovery.Poller do
   def start_link(service, handlers) when is_binary(service) and is_list(handlers) do
     GenServer.start_link(__MODULE__, [service, handlers])
   end
-  def start_link(service, handler) when is_binary(service) and is_atom(handler) do
+  def start_link(service, handler) when is_binary(service) do
     GenServer.start_link(__MODULE__, [service, [handler]])
   end
 
