@@ -1,5 +1,7 @@
 # Discovery
 
+[![Build Status](https://travis-ci.org/undeadlabs/discovery.png?branch=master)](https://travis-ci.org/undeadlabs/discovery)
+
 An OTP application for auto-discovering services with [Consul](http://www.consul.io)
 
 ## Requirements
