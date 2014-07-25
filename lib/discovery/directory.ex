@@ -47,11 +47,20 @@ defmodule Discovery.Directory do
   end
 
   @doc """
-  Checks if node exists within the Directory.
+  Returns true if the given node is known.
   """
   @spec has_node?(atom) :: boolean
   def has_node?(node) when is_atom(node) do
     GenServer.call(@name, {:has_node?, node})
+  end
+
+  @doc """
+  Returns true if the given node is known and providing the given service and
+  false if the node is not known or not providing the service.
+  """
+  @spec has_node?(atom, binary) :: boolean
+  def has_node?(node, service) when is_atom(node) and is_binary(service) do
+    GenServer.call(@name, {:has_node?, node, service})
   end
 
   @doc """
@@ -183,6 +192,13 @@ defmodule Discovery.Directory do
 
   def handle_call({:has_node?, node}, _, %{nodes: nodes} = state) do
     {:reply, Dict.has_key?(nodes, node), state}
+  end
+
+  def handle_call({:has_node?, node, service}, _, %{nodes: nodes} = state) do
+    result = Enum.any?(nodes, fn({name, services}) ->
+      name == node && Set.member?(services, service)
+    end)
+    {:reply, result, state}
   end
 
   def handle_call(:nodes, _, %{nodes: nodes} = state) do
