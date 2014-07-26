@@ -44,6 +44,35 @@ defmodule Discovery.DirectoryTest do
     assert Directory.nodes |> Enum.empty?
   end
 
+  test "dropping a node and all services it was providing" do
+    Directory.add(:'reset@undead', "router")
+    Directory.add(:'reset@undead', "account")
+    Directory.add(:'reset-2@undead', "router")
+    Directory.drop(:'reset@undead')
+
+    refute Directory.nodes |> Enum.empty?
+    assert Directory.nodes |> Dict.has_key?(:'reset-2@undead')
+    assert Directory.nodes[:'reset-2@undead'] |> Set.size == 1
+    assert Directory.nodes[:'reset-2@undead'] |> Set.member?("router")
+    refute Directory.rings |> Dict.has_key?("account")
+    assert Directory.rings |> Dict.has_key?("router")
+  end
+
+  test "removing multiple services that a node was providing" do
+    Directory.add(:'reset@undead', "router")
+    Directory.add(:'reset@undead', "account")
+    Directory.add(:'reset-2@undead', "router")
+    Directory.drop(:'reset@undead', "router")
+    Directory.drop(:'reset@undead', "account")
+
+    refute Directory.services |> Dict.has_key?("account")
+    assert Directory.services |> Dict.has_key?("router")
+    assert Directory.nodes |> Dict.has_key?(:'reset-2@undead')
+    refute Directory.nodes |> Dict.has_key?(:'reset@undead')
+    refute Directory.rings |> Dict.has_key?("account")
+    assert Directory.rings |> Dict.has_key?("router")
+  end
+
   test "adding a node providing multiple services" do
     Directory.add(:'reset@undead', "router")
     Directory.add(:'reset@undead', "chat")
@@ -127,6 +156,9 @@ defmodule Discovery.DirectoryTest do
 
     nodes = Directory.nodes("something")
     assert Enum.count(nodes) == 0
+
+    nodes = Directory.nodes(["router", "chat"])
+    assert Enum.count(nodes) == 3
   end
 
   test "has_node?/1" do
