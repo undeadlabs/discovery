@@ -32,26 +32,70 @@ defmodule Discovery.Handler.NodeConnect do
   """
 
   use Discovery.Handler.Behaviour
+  alias Discovery.Directory
+  alias Discovery.Service
 
   @passing "passing"
   @warning "warning"
 
   def handle_services(services, state) do
-    :ok = update_services(services)
+    stale(services) |> disconnect
+    connect(services)
     {:ok, state}
+  end
+
+  @doc """
+  Returns a list of stale registered nodes in `Discovery.Directory` which are no longer
+  providing a service given the list of fresh services.
+
+  The return value is a list of tuples where the first element is a service name and
+  the second element is a list of node names which are providing that service.
+
+  ### Example
+
+      [{"router", [:"reset@undead"]}]
+  """
+  def stale(given) do
+    service_names = Enum.map(given, fn(%Service{name: name}) -> name end) |> Enum.uniq
+    grouped       = for name <- service_names, do: {name, Directory.nodes(name)}
+    Enum.reduce(grouped, [], fn({name, nodes}, drop) ->
+      {_, unknown} = Enum.partition(nodes, fn(node) ->
+        Enum.any?(given, fn
+          %Service{name: sname} = service when sname == name ->
+            otp_name(service) == node
+          _ ->
+            false
+        end)
+      end)
+
+      [{name, unknown}|drop]
+    end)
   end
 
   #
   # Private
   #
 
-  defp connect(%Discovery.Service{name: name} = service) do
+  defp connect([]), do: :ok
+  defp connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
     case otp_name(service) do
       nil ->
         {:error, :no_node_name}
       otp_name ->
         Discovery.NodeConnector.connect(otp_name, name)
     end
+    connect(rest)
+  end
+
+  defp disconnect([]), do: :ok
+  defp disconnect([{service, nodes}|rest]) do
+    disconnect(service, nodes)
+    disconnect(rest)
+  end
+  defp disconnect(_, []), do: :ok
+  defp disconnect(service, [node|rest]) do
+    Discovery.NodeConnector.disconnect(node, service)
+    disconnect(service, rest)
   end
 
   defp otp_name(%{tags: []}), do: nil
@@ -64,11 +108,4 @@ defmodule Discovery.Handler.NodeConnect do
     end
   end
   defp otp_name(_), do: nil
-
-  defp update_services([]), do: :ok
-  defp update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do
-    connect(service)
-    update_services(rest)
-  end
-  defp update_services([%Discovery.Service{status: _}|rest]), do: update_services(rest)
 end

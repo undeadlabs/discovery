@@ -20,8 +20,8 @@ defmodule Discovery.NodeConnector do
   end
 
   @doc """
-  Connect to the given node and register it in the `Discovery.Directory` for providing
-  the given service.
+  Register the given node with the `Discovery.Directory` for providing the given
+  service and attempt to connect to the node if not already connected.
   """
   @spec connect(atom | binary, binary) :: :ok
   def connect(node, service) when is_binary(node), do: connect(String.to_atom(node), service)
@@ -30,12 +30,13 @@ defmodule Discovery.NodeConnector do
   end
 
   @doc """
-  Disconnect from the given node and remove it from the `Discovery.Directory`.
+  Deregister the given node with the `Discovery.Directory` for providing the given
+  service and attempt to disconnect from the node if it is no longer providing any services.
   """
-  @spec disconnect(atom | binary) :: :ok
-  def disconnect(node) when is_binary(node), do: disconnect(String.to_atom(node))
-  def disconnect(node) when is_atom(node) do
-    GenServer.call(@name, {:disconnect, node})
+  @spec disconnect(atom | binary, binary) :: :ok
+  def disconnect(node, services) when is_binary(node), do: disconnect(String.to_atom(node), services)
+  def disconnect(node, services) when is_atom(node) do
+    GenServer.call(@name, {:disconnect, node, services})
   end
 
   #
@@ -74,7 +75,6 @@ defmodule Discovery.NodeConnector do
 
     Node.monitor(node, false)
     Node.disconnect(node)
-    :ok = Directory.drop(node)
 
     %{state | timers: new_timers}
   end
@@ -99,9 +99,15 @@ defmodule Discovery.NodeConnector do
     end
   end
 
-  def handle_call({:disconnect, node}, _from, state) do
-    new_state = attempt_disconnect(node, state)
-    {:reply, :ok, new_state}
+  def handle_call({:disconnect, node, services}, _from, state) do
+    :ok = Directory.drop(node, services)
+    case Directory.has_node?(node) do
+      true ->
+        {:reply, :ok, state}
+      false ->
+        new_state = attempt_disconnect(node, state)
+        {:reply, :ok, new_state}
+    end
   end
 
   def handle_info({:retry_connect, node}, state) do
