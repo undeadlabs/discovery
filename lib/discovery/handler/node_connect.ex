@@ -38,10 +38,27 @@ defmodule Discovery.Handler.NodeConnect do
   @passing "passing"
   @warning "warning"
 
-  def handle_services(services, state) do
-    stale(services) |> disconnect
-    connect(services)
-    {:ok, state}
+  def connect([]), do: :ok
+  def connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
+    case otp_name(service) do
+      nil ->
+        {:error, :no_node_name}
+      otp_name ->
+        Discovery.NodeConnector.connect(otp_name, name)
+    end
+    connect(rest)
+  end
+  def connect([_|rest]), do: connect(rest)
+
+  def disconnect([]), do: :ok
+  def disconnect([{service, nodes}|rest]) do
+    _disconnect(service, nodes)
+    disconnect(rest)
+  end
+  defp _disconnect(_, []), do: :ok
+  defp _disconnect(service, [node|rest]) do
+    Discovery.NodeConnector.disconnect(node, service)
+    _disconnect(service, rest)
   end
 
   @doc """
@@ -73,30 +90,18 @@ defmodule Discovery.Handler.NodeConnect do
   end
 
   #
-  # Private
+  # Discovery.Handler.Behaviour callbacks
   #
 
-  defp connect([]), do: :ok
-  defp connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
-    case otp_name(service) do
-      nil ->
-        {:error, :no_node_name}
-      otp_name ->
-        Discovery.NodeConnector.connect(otp_name, name)
-    end
-    connect(rest)
+  def handle_services(services, state) do
+    stale(services) |> disconnect
+    connect(services)
+    {:ok, state}
   end
 
-  defp disconnect([]), do: :ok
-  defp disconnect([{service, nodes}|rest]) do
-    disconnect(service, nodes)
-    disconnect(rest)
-  end
-  defp disconnect(_, []), do: :ok
-  defp disconnect(service, [node|rest]) do
-    Discovery.NodeConnector.disconnect(node, service)
-    disconnect(service, rest)
-  end
+  #
+  # Private
+  #
 
   defp otp_name(%{tags: []}), do: nil
   defp otp_name(%{tags: tags}) when is_list(tags) do

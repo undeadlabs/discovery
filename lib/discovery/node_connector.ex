@@ -73,7 +73,12 @@ defmodule Discovery.NodeConnector do
         new_timers = new_timers
     end
 
-    Node.monitor(node, false)
+    try do
+      Node.monitor(node, false)
+    rescue
+      ex in ArgumentError -> :ok
+    end
+
     Node.disconnect(node)
 
     %{state | timers: new_timers}
