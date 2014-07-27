@@ -31,12 +31,22 @@ defmodule Discovery.Directory do
   end
 
   @doc """
-  Drop a node from the directory.
+  Completely remove a node from the directory and all services it provides.
   """
   @spec drop(atom) :: :ok
   def drop(node) when is_atom(node) do
     GenServer.call(@name, {:drop, node})
   end
+
+  @doc """
+  Drop the service provided by a node from the directory. If this is the last
+  service the node was providing it will be completely removed.
+  """
+  @spec drop(atom, [binary]) :: :ok
+  def drop(node, services) when is_atom(node) and is_list(services) do
+    GenServer.call(@name, {:drop, node, services})
+  end
+  def drop(node, service) when is_binary(service), do: drop(node, [service])
 
   @doc """
   Find a node running service hashed by hash.
@@ -74,7 +84,10 @@ defmodule Discovery.Directory do
   @doc """
   List all nodes which provide the given service.
   """
-  @spec nodes(binary) :: list
+  @spec nodes(binary | [binary]) :: list
+  def nodes(services) when is_list(services) do
+    Enum.reduce(services, [], fn(service, acc) -> nodes(service) ++ acc end)
+  end
   def nodes(service) when is_binary(service) do
     GenServer.call(@name, {:nodes, service})
   end
@@ -146,39 +159,14 @@ defmodule Discovery.Directory do
     {:reply, :ok, %{nodes: %{}, services: %{}, rings: %{}}}
   end
 
-  def handle_call({:drop, node}, _, %{nodes: nodes, services: services, rings: rings} = state) do
-    case Dict.pop(nodes, node) do
-      {nil, new_nodes} ->
-        new_nodes    = new_nodes
-        new_services = services
-        new_rings    = rings
-      {_, new_nodes} ->
-        new_nodes                 = new_nodes
-        {new_services, new_rings} = Enum.reduce(services, {%{}, %{}}, fn({key, value}, {services, rings} = acc) ->
-          new_set = Set.delete(value, node)
-          case Enum.empty?(new_set) do
-            true ->
-              case Dict.fetch(rings, key) do
-                {:ok, %Discovery.Ring{pid: pid}} ->
-                  Discovery.Ring.drop(pid, node)
-                :error ->
-                  :ok
-              end
-              acc
-            false ->
-              case Dict.pop(rings, key) do
-                {nil, new_rings} ->
-                  new_rings = new_rings
-                {ring, new_rings} ->
-                  stop_ring(ring)
-                  new_rings = new_rings
-              end
-              {Dict.put(services, key, new_set), new_rings}
-          end
-        end)
-    end
+  def handle_call({:drop, node}, _, state) do
+    new_state = _drop(node, state)
+    {:reply, :ok, new_state}
+  end
 
-    {:reply, :ok, %{state | nodes: new_nodes, services: new_services, rings: new_rings}}
+  def handle_call({:drop, node, services}, _, state) do
+    new_state = _drop(node, services, state)
+    {:reply, :ok, new_state}
   end
 
   def handle_call({:find, service, hash}, _, %{rings: rings} = state) do
@@ -232,5 +220,71 @@ defmodule Discovery.Directory do
         :ok
     end
     {:noreply, %{state | rings: Dict.put(rings, service, new_ring)}}
+  end
+
+  #
+  # Private
+  #
+
+  defp _drop(node, %{services: services} = state) do
+    _drop(node, Dict.keys(services), state)
+  end
+
+  defp _drop(_, [], state), do: state
+  defp _drop(node, [service|rest], state) do
+    new_state = drop_service(state, service, node) |> drop_ring(service, node) |> drop_node(node)
+    _drop(node, rest, new_state)
+  end
+
+  defp drop_node(%{nodes: nodes} = state, node) do
+    case Dict.get(nodes, node) do
+      nil ->
+        state
+      services ->
+        case Set.size(services) do
+          0 ->
+            %{state | nodes: Dict.delete(nodes, node)}
+          _ ->
+            state
+        end
+    end
+  end
+
+  defp drop_service(%{services: services, nodes: nodes} = state, service, node) do
+    state = case Dict.get(services, service) do
+      nil ->
+        state
+      nodes ->
+        new_nodes = Set.delete(nodes, node)
+        case Set.size(new_nodes) do
+          0 ->
+            %{state | services: Dict.delete(services, service)}
+          _ ->
+            %{state | services: Dict.put(services, service, new_nodes)}
+        end
+    end
+
+    case Dict.get(nodes, node) do
+      nil ->
+        state
+      services ->
+        %{state | nodes: Dict.put(nodes, node, Set.delete(services, service))}
+    end
+  end
+
+  defp drop_ring(%{rings: rings, services: services} = state, service, node) do
+    case Dict.get(rings, service) do
+      nil ->
+        state
+      %Discovery.Ring{pid: pid} = ring ->
+        Discovery.Ring.drop(pid, node)
+        case Dict.get(services, service) do
+          nil ->
+            stop_ring(ring)
+            %{state | rings: Dict.delete(rings, service)}
+          _ ->
+            state
+        end
+    end
   end
 end

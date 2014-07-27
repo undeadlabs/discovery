@@ -32,27 +32,85 @@ defmodule Discovery.Handler.NodeConnect do
   """
 
   use Discovery.Handler.Behaviour
+  alias Discovery.Directory
+  alias Discovery.Service
 
   @passing "passing"
   @warning "warning"
 
-  def handle_services(services, state) do
-    :ok = update_services(services)
-    {:ok, state}
-  end
-
-  #
-  # Private
-  #
-
-  defp connect(%Discovery.Service{name: name} = service) do
+  @doc """
+  Connect to a list of services. Only services marked passing will be connected to.
+  """
+  @spec connect([Service.t]) :: :ok
+  def connect([]), do: :ok
+  def connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
     case otp_name(service) do
       nil ->
         {:error, :no_node_name}
       otp_name ->
         Discovery.NodeConnector.connect(otp_name, name)
     end
+    connect(rest)
   end
+  def connect([_|rest]), do: connect(rest)
+
+  @doc """
+  Disconnect from a list of stale services. A list of stale services can be obtained
+  by calling `NodeConnect.stale/1` with a list of `Discovery.Service`.
+  """
+  @spec disconnect([{binary, [atom]}]) :: :ok
+  def disconnect([]), do: :ok
+  def disconnect([{service, nodes}|rest]) do
+    _disconnect(service, nodes)
+    disconnect(rest)
+  end
+  defp _disconnect(_, []), do: :ok
+  defp _disconnect(service, [node|rest]) do
+    Discovery.NodeConnector.disconnect(node, service)
+    _disconnect(service, rest)
+  end
+
+  @doc """
+  Returns a list of stale registered nodes in `Discovery.Directory` which are no longer
+  providing a service given the list of fresh services.
+
+  The return value is a list of tuples where the first element is a service name and
+  the second element is a list of node names which are providing that service.
+
+  ### Example
+
+      [{"router", [:"reset@undead"]}]
+  """
+  def stale(given) do
+    service_names = Enum.map(given, fn(%Service{name: name}) -> name end) |> Enum.uniq
+    grouped       = for name <- service_names, do: {name, Directory.nodes(name)}
+    Enum.reduce(grouped, [], fn({name, nodes}, drop) ->
+      {_, unknown} = Enum.partition(nodes, fn(node) ->
+        Enum.any?(given, fn
+          %Service{name: sname} = service when sname == name ->
+            otp_name(service) == node
+          _ ->
+            false
+        end)
+      end)
+
+      [{name, unknown}|drop]
+    end)
+  end
+
+  #
+  # Discovery.Handler.Behaviour callbacks
+  #
+
+  def handle_services(services, state) do
+    stale(services) |> disconnect
+    connect(services)
+    {:ok, state}
+  end
+
+  #
+  # Private
+  #
 
   defp otp_name(%{tags: []}), do: nil
   defp otp_name(%{tags: tags}) when is_list(tags) do
@@ -64,11 +122,4 @@ defmodule Discovery.Handler.NodeConnect do
     end
   end
   defp otp_name(_), do: nil
-
-  defp update_services([]), do: :ok
-  defp update_services([%Discovery.Service{status: status} = service|rest]) when status in [@passing, @warning] do
-    connect(service)
-    update_services(rest)
-  end
-  defp update_services([%Discovery.Service{status: _}|rest]), do: update_services(rest)
 end
