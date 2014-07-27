@@ -38,6 +38,10 @@ defmodule Discovery.Handler.NodeConnect do
   @passing "passing"
   @warning "warning"
 
+  @doc """
+  Connect to a list of services. Only services marked passing will be connected to.
+  """
+  @spec connect([Service.t]) :: :ok
   def connect([]), do: :ok
   def connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
     case otp_name(service) do
@@ -50,6 +54,11 @@ defmodule Discovery.Handler.NodeConnect do
   end
   def connect([_|rest]), do: connect(rest)
 
+  @doc """
+  Disconnect from a list of stale services. A list of stale services can be obtained
+  by calling `NodeConnect.stale/1` with a list of `Discovery.Service`.
+  """
+  @spec disconnect([{binary, [atom]}]) :: :ok
   def disconnect([]), do: :ok
   def disconnect([{service, nodes}|rest]) do
     _disconnect(service, nodes)
