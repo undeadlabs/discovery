@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+* Enhancements
+  * Updated for Elixir 0.15.x
+
 ## 0.2.0
 
 * Enhancements
