@@ -5,11 +5,19 @@
 #
 
 defmodule Discovery.Service do
-  defstruct name: nil :: binary,
-    port: nil :: integer,
-    status: nil :: binary,
-    tags: [] :: [binary],
-    node: nil :: Discovery.Node.t
+  defstruct name: nil,
+    port: nil,
+    status: nil,
+    tags: [],
+    node: nil
+
+  @type t :: %__MODULE__{
+    name: binary,
+    port: integer,
+    status: binary,
+    tags: [binary],
+    node: Discovery.Node.t
+  }
 
   @doc """
   Build a `Discovery.Service` struct, or a list of `Discovery.Service` structs, from a list
