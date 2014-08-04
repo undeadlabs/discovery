@@ -5,6 +5,11 @@
 #
 
 defmodule Discovery.Node do
-  defstruct name: nil :: binary,
-    address: nil :: binary
+  defstruct name: nil,
+    address: nil
+
+  @type t :: %__MODULE__{
+    name: binary,
+    address: binary
+  }
 end

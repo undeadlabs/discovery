@@ -76,7 +76,7 @@ defmodule Discovery.NodeConnector do
     try do
       Node.monitor(node, false)
     rescue
-      ex in ArgumentError -> :ok
+      _ in ArgumentError -> :ok
     end
 
     Node.disconnect(node)

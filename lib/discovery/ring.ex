@@ -9,8 +9,13 @@ defmodule Discovery.Ring do
   Manages a consistent hash ring of Erlang nodes for a discovered service.
   """
 
-  defstruct pid: nil :: pid,
-    ref: nil :: reference
+  defstruct pid: nil,
+    ref: nil
+
+  @type t :: %__MODULE__{
+    pid: pid,
+    ref: reference
+  }
 
   def start do
     HashRing.start(replicas: Application.get_env(:discovery, :replica_count, 128))
