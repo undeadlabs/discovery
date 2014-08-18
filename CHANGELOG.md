@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+* Enhancements
+  * No longer require github version of hackney now that it is hosted on hex
+
 ## 0.3.0
 
 * Enhancements
