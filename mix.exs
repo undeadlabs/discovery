@@ -34,7 +34,6 @@ defmodule Discovery.Mixfile do
     [
       {:consul, "~> 0.1.2"},
       {:hash_ring_ex, "~> 1.1"},
-      {:hackney, "~> 0.13.1"},
     ]
   end
 
