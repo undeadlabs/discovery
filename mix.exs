@@ -4,7 +4,7 @@ defmodule Discovery.Mixfile do
   def project do
     [
       app: :discovery,
-      version: "0.3.1",
+      version: "0.3.2",
       elixir: "~> 0.15.0",
       deps: deps,
       package: package,
@@ -32,7 +32,7 @@ defmodule Discovery.Mixfile do
 
   defp deps do
     [
-      {:consul, "~> 0.1.0"},
+      {:consul, "~> 0.1.2"},
       {:hash_ring_ex, "~> 1.1"},
       {:hackney, "~> 0.13.1"},
     ]
