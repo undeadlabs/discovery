@@ -19,8 +19,7 @@ end
 
 defp deps do
   [
-    {:discovery, "~> 0.1.0"},
-    {:hackney, "~> 0.13.1"},
+    {:discovery, "~> 0.3.1"}
   ]
 end
 ```
