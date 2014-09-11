@@ -6,7 +6,7 @@ An OTP application for auto-discovering services with [Consul](http://www.consul
 
 ## Requirements
 
-* Elixir 0.15.0 or newer
+* Elixir 0.15.1 or newer
 
 ## Installation
 
