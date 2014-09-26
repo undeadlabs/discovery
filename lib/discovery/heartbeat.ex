@@ -14,6 +14,16 @@ defmodule Discovery.Heartbeat do
     GenServer.start_link(__MODULE__, [check_id, interval])
   end
 
+  @spec start(binary, integer) :: GenServer.on_start
+  def start(check_id, interval) do
+    GenServer.start(__MODULE__, [check_id, interval])
+  end
+
+  @spec stop(pid) :: :ok
+  def stop(pid) do
+    GenServer.call(pid, :stop)
+  end
+
   #
   # Private API
   #
@@ -39,6 +49,7 @@ defmodule Discovery.Heartbeat do
   def init([check_id, interval]) do
     case service_name(check_id) do
       {:ok, service} ->
+        :ok = Discovery.register_app(service)
         :ok = Discovery.Directory.add(Node.self, service)
         {:ok, %{timer: nil, check_id: check_id, interval: interval, service: service}, 0}
       error ->
@@ -61,6 +72,10 @@ defmodule Discovery.Heartbeat do
     send_pulse(check_id)
     new_timer = :erlang.send_after(interval, self, :pulse)
     {:noreply, %{state | timer: new_timer}}
+  end
+
+  def handle_call(:stop, _, state) do
+    {:stop, :normal, :ok, state}
   end
 
   def terminate(_, %{service: service}) do
