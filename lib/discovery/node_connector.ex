@@ -10,6 +10,8 @@ defmodule Discovery.NodeConnector do
   is established or it is explicitly disconnected by calling `NodeConnector.disconnect/1`.
   """
 
+  require Logger
+
   use GenServer
   alias Discovery.Directory
 
@@ -44,27 +46,36 @@ defmodule Discovery.NodeConnector do
   #
 
   defp attempt_connect(node, %{retry_ms: retry_ms, timers: timers} = state) do
+    Logger.debug "Attempting to connect to node: #{node}"
     case Node.connect(node) do
       result when result in [false, :ignored] ->
         timer      = :erlang.send_after(retry_ms, self, {:retry_connect, node})
         new_timers = Dict.put(timers, node, timer)
       true ->
-        case Dict.fetch(timers, node) do
-          {:ok, nil} ->
-            :ok
-          :error ->
-            Node.monitor(node, true)
-          {:ok, timer} ->
-            Node.monitor(node, true)
-            :erlang.cancel_timer(timer)
+        Logger.info "Connected to: #{node}"
+        case Directory.add(node, Node.self, Discovery.apps) do
+          :ok ->
+            case Dict.fetch(timers, node) do
+              {:ok, nil} ->
+                :ok
+              :error ->
+                Node.monitor(node, true)
+              {:ok, timer} ->
+                Node.monitor(node, true)
+                :erlang.cancel_timer(timer)
+            end
+            new_timers = Dict.put(timers, node, nil)
+          {:error, _} ->
+            timer      = :erlang.send_after(retry_ms, self, {:retry_connect, node})
+            new_timers = Dict.put(timers, node, timer)
         end
-        new_timers = Dict.put(timers, node, nil)
     end
 
     %{state | timers: new_timers}
   end
 
   defp attempt_disconnect(node, %{timers: timers} = state) do
+    Logger.debug "Attempting to disconnect from node: #{node}"
     case Dict.pop(timers, node) do
       {nil, new_timers} ->
         new_timers = new_timers
@@ -80,6 +91,7 @@ defmodule Discovery.NodeConnector do
     end
 
     Node.disconnect(node)
+    Logger.info "Disconnected from: #{node}"
 
     %{state | timers: new_timers}
   end
@@ -121,6 +133,7 @@ defmodule Discovery.NodeConnector do
   end
 
   def handle_info({:nodedown, node}, state) do
+    Logger.warn "Unexpected disconnect from node: #{node}"
     case Directory.has_node?(node) do
       true ->
         new_state = attempt_connect(node, state)

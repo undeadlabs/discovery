@@ -25,6 +25,26 @@ defmodule Discovery do
   ], to: Discovery.Directory
 
   @doc """
+  Returns a list of applications that this process provides.
+  """
+  @spec apps :: [binary]
+  def apps do
+    Application.get_env(:discovery, :apps, [])
+  end
+
+  @doc """
+  Registers the given application as a service discovery provides.
+  """
+  @spec register_app(binary | atom) :: :ok
+  def register_app(app) when is_atom(app), do: Atom.to_string(app) |> register_app
+  def register_app(app) do
+    unless Enum.member?(apps, app) do
+      Application.put_env(:discovery, :apps, [app|apps])
+    end
+    :ok
+  end
+
+  @doc """
   Select a node providing the given service and run the run fun with that node.
   """
   @spec select(binary, atom | binary, function) :: term | {:error, {:no_servers, binary}}

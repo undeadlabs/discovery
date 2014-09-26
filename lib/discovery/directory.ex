@@ -20,9 +20,24 @@ defmodule Discovery.Directory do
   @doc """
   Add a node and the service it provides to the directory.
   """
-  @spec add(atom, binary) :: :ok
+  @spec add(node, binary) :: :ok
   def add(node, service) when is_atom(node) and is_binary(service) do
     GenServer.call(@name, {:add, node, service})
+  end
+
+  @doc """
+  Add a node and the service it provides to a remote node's directory.
+  """
+  @spec add(node, node, binary | [binary]) :: :ok
+  def add(_, _, []), do: :ok
+  def add(remote, local, [app|rest]) do
+    case add(remote, local, app) do
+      :ok   -> add(remote, local, rest)
+      error -> error
+    end
+  end
+  def add(remote, local, service) when is_atom(local) and is_binary(service) do
+    GenServer.call({@name, remote}, {:add, local, service})
   end
 
   @doc false

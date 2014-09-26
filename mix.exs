@@ -18,6 +18,7 @@ defmodule Discovery.Mixfile do
       applications: [
         :consul,
         :hash_ring_ex,
+        :logger,
       ],
       registered: [
         Discovery.Directory,
