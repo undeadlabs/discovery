@@ -161,6 +161,14 @@ defmodule Discovery.DirectoryTest do
     assert Enum.count(nodes) == 3
   end
 
+  test "listing all services that a given node provides" do
+    Directory.add(:'reset@undead', "router")
+    Directory.add(:'reset@undead', "chat")
+    Directory.add(:'reset@undead-2', "router")
+
+    assert Directory.services(:'reset@undead') |> Enum.count == 2
+  end
+
   test "has_node?/1" do
     Directory.add(:'reset@undead', "router")
 

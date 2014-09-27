@@ -91,7 +91,7 @@ defmodule Discovery.Directory do
   @doc """
   List all nodes and the services they provide.
   """
-  @spec nodes :: Set.t
+  @spec nodes :: map
   def nodes do
     GenServer.call(@name, :nodes)
   end
@@ -110,9 +110,17 @@ defmodule Discovery.Directory do
   @doc """
   List all services and the nodes which provide them.
   """
-  @spec services :: Set.t
+  @spec services :: map
   def services do
     GenServer.call(@name, :services)
+  end
+
+  @doc """
+  List all services that a given node provides.
+  """
+  @spec services(atom) :: [binary]
+  def services(node) do
+    GenServer.call(@name, {:services, node})
   end
 
   def rings do
@@ -219,6 +227,15 @@ defmodule Discovery.Directory do
 
   def handle_call(:services, _, %{services: services} = state) do
     {:reply, services, state}
+  end
+
+  def handle_call({:services, node}, _, %{nodes: nodes} = state) do
+    case Dict.get(nodes, node) do
+      nil ->
+        {:reply, nil, state}
+      services ->
+        {:reply, Dict.to_list(services), state}
+    end
   end
 
   def handle_call(:rings, _, %{rings: rings} = state) do

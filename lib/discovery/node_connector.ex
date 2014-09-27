@@ -17,8 +17,14 @@ defmodule Discovery.NodeConnector do
 
   @name Discovery.NodeConnector
 
+  @spec start_link :: GenServer.on_start
   def start_link do
     GenServer.start_link(__MODULE__, [], name: @name)
+  end
+
+  @spec start_link([atom]) :: GenServer.on_start
+  def start_link(handlers) do
+    GenServer.start_link(__MODULE__, handlers, name: @name)
   end
 
   @doc """
