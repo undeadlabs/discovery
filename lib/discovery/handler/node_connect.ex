@@ -31,9 +31,11 @@ defmodule Discovery.Handler.NodeConnect do
       }
   """
 
+  require Logger
   use Discovery.Handler.Behaviour
   alias Discovery.Directory
   alias Discovery.Service
+  alias Discovery.NodeConnector
 
   @passing "passing"
   @warning "warning"
@@ -84,18 +86,42 @@ defmodule Discovery.Handler.NodeConnect do
   def stale(given) do
     service_names = Enum.map(given, fn(%Service{name: name}) -> name end) |> Enum.uniq
     grouped       = for name <- service_names, do: {name, Directory.nodes(name)}
-    Enum.reduce(grouped, [], fn({name, nodes}, drop) ->
-      {_, unknown} = Enum.partition(nodes, fn(node) ->
-        Enum.any?(given, fn
+    Enum.reduce grouped, [], fn({name, nodes}, drop) ->
+      {_, unknown} = Enum.partition nodes, fn(node) ->
+        Enum.any? given, fn
           %Service{name: sname} = service when sname == name ->
             otp_name(service) == node
           _ ->
             false
-        end)
-      end)
+        end
+      end
 
       [{name, unknown}|drop]
-    end)
+    end
+  end
+
+  #
+  # GenEvent callbacks
+  #
+
+  def init([]), do: {:ok, []}
+  def init(handlers) when is_list(handlers) do
+    refs = Enum.map handlers, fn
+      {module, args} ->
+        {:ok, ref} = NodeConnector.add_handler(module, args)
+        ref
+      module ->
+        {:ok, ref} = NodeConnector.add_handler(module)
+        ref
+    end
+    {:ok, refs}
+  end
+
+  def terminate(_, refs) do
+    Enum.each refs, fn({module, ref}) ->
+      NodeConnector.remove_handler(module, ref)
+    end
+    :ok
   end
 
   #
@@ -117,8 +143,10 @@ defmodule Discovery.Handler.NodeConnect do
     case Keyword.get(tags, :otp_name) do
       nil ->
         nil
-      name ->
+      name when is_binary(name) ->
         String.to_atom(name)
+      name when is_atom(name) ->
+        name
     end
   end
   defp otp_name(_), do: nil
