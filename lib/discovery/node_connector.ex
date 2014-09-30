@@ -164,14 +164,9 @@ defmodule Discovery.NodeConnector do
   end
 
   def handle_call({:connect, node, service}, _, state) do
-    case Directory.has_node?(node) do
-      true ->
-        {:reply, :ok, state}
-      false ->
-        :ok       = Directory.add(node, service)
-        new_state = attempt_connect(node, state)
-        {:reply, :ok, new_state}
-    end
+    :ok       = Directory.add(node, service)
+    new_state = attempt_connect(node, state)
+    {:reply, :ok, new_state}
   end
 
   def handle_call({:disconnect, node, services}, _, state) do
