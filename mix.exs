@@ -27,6 +27,7 @@ defmodule Discovery.Mixfile do
       env: [
         retry_connect_ms: 5000,
         replica_count: 128,
+        enable_polling: true,
       ]
     ]
   end

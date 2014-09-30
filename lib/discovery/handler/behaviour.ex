@@ -16,8 +16,12 @@ defmodule Discovery.Handler.Behaviour do
       # GenEvent callbacks
       #
 
-      def handle_event({:services, services}, state) do
+      def handle_event({:services, services}, state) when is_list(services) do
         handle_services(services, state)
+      end
+
+      def handle_event({:services, service}, state) do
+        handle_services([service], state)
       end
     end
   end

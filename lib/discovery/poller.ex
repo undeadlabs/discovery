@@ -9,12 +9,13 @@ defmodule Discovery.Poller do
   Notifies subscribers of node availability within Consul for a particular service.
   """
 
+  require Logger
   use GenServer
   import Consul.Response, only: [consul_index: 1]
 
   @type handler :: atom | {atom, list} | (([Discovery.Service.t]) -> any)
 
-  @retry_ms 5000
+  @retry_ms 30 * 1000
 
   @spec start_link(binary) :: GenServer.on_start
   def start_link(service) when is_binary(service) do
@@ -39,6 +40,11 @@ defmodule Discovery.Poller do
     GenServer.call(poller, {:add_handler, handler, args})
   end
 
+  @spec enabled? :: boolean
+  def enabled? do
+    Application.get_env(:discovery, :enable_polling, true)
+  end
+
   @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
   def poll(index, service) do
     Consul.Health.service(index, service)
@@ -60,14 +66,14 @@ defmodule Discovery.Poller do
   def init([service, handlers]) do
     {:ok, em} = GenEvent.start_link
 
-    Enum.each(handlers, fn
+    Enum.each handlers, fn
       {module, args} ->
         :ok = GenEvent.add_handler(em, module, args)
       fun when is_function(fun, 1) ->
         :ok = GenEvent.add_handler(em, Discovery.Handler.Generic, [fun])
       module ->
         :ok = GenEvent.add_handler(em, module, [])
-    end)
+    end
 
     {:ok, %{em: em, service: service, services: [], index: nil, task: nil}, 0}
   end
@@ -78,20 +84,31 @@ defmodule Discovery.Poller do
 
   # Seed node-service data and begin polling
   def handle_info(:timeout, %{service: service, index: nil} = state) do
-    case Consul.Health.service(service) do
-      {:ok, %{body: body} = response} ->
-        case Discovery.Service.from_health(body) do
-          [] = result ->
-            new_services = result
-          services ->
-            new_services = services
-        end
-        :ok       = notify_change(new_services, state)
-        new_state = %{state | services: new_services, index: consul_index(response)}
-        task      = async_poll(new_state.index, service)
-        {:noreply, %{new_state | task: task}}
-      {:error, _} ->
-        {:noreply, state, @retry_ms}
+    # determine if we provide the service and notify listeners
+    if Discovery.Util.app_running?(service) do
+      %Discovery.Service{name: service, tags: [otp_name: Node.self], status: "passing"}
+        |> notify_change(state)
+    end
+
+    if enabled? do
+      case Consul.Health.service(service) do
+        {:ok, %{body: body} = response} ->
+          case Discovery.Service.from_health(body) do
+            [] = result ->
+              new_services = result
+            services ->
+              new_services = services
+          end
+          :ok       = notify_change(new_services, state)
+          new_state = %{state | services: new_services, index: consul_index(response)}
+          task      = async_poll(new_state.index, service)
+          {:noreply, %{new_state | task: task}}
+        {:error, error} ->
+          Logger.warn "Error polling service status from Consul: #{inspect error}"
+          {:noreply, state, @retry_ms}
+      end
+    else
+      {:noreply, state}
     end
   end
 

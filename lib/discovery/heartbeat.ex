@@ -50,7 +50,6 @@ defmodule Discovery.Heartbeat do
     case service_name(check_id) do
       {:ok, service} ->
         :ok = Discovery.register_app(service)
-        :ok = Discovery.Directory.add(Node.self, service)
         {:ok, %{timer: nil, check_id: check_id, interval: interval, service: service}, 0}
       error ->
         {:stop, error}
