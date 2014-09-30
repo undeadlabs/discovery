@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+* Bug Fixes
+  * Calls to NodeConnector.connect/2 are now idempotent.
+  * Running a heartbeat process will once again register a service with Discovery.Directory.
+
 ## 0.5.0
 
 * Enhancements
