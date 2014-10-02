@@ -7,6 +7,8 @@
 defmodule Discovery.NodeConnector.Handler do
   use Behaviour
 
+  @type state :: term
+
   @spec notify_connect(pid, node) :: :ok
   def notify_connect(em, node) do
     GenEvent.notify(em, {:connect, node})
@@ -28,17 +30,17 @@ defmodule Discovery.NodeConnector.Handler do
       #
 
       def handle_event({:connect, node}, state) do
-        on_connect(node, Directory.services(node))
-        {:ok, state}
+        new_state = on_connect(node, Directory.services(node), state)
+        {:ok, new_state}
       end
 
       def handle_event({:disconnect, node}, state) do
-        on_disconnect(node, Directory.services(node))
-        {:ok, state}
+        new_state = on_disconnect(node, Directory.services(node), state)
+        {:ok, new_state}
       end
     end
   end
 
-  defcallback on_connect(node :: node, service :: binary)
-  defcallback on_disconnect(node :: node, services :: [binary])
+  defcallback on_connect(node :: node, service :: binary, state :: state) :: state
+  defcallback on_disconnect(node :: node, services :: [binary], state :: state) :: state
 end

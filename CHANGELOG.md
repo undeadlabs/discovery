@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+* Enhancements
+  * Change arity of NodeConnector.Handler.on_connect/2 and on_disconnect/2 to on_connect/3 and on_disconnect/3. The third parameter is the state of the event handler to allow for customization at start up.
+
 ## 0.5.1
 
 * Bug Fixes
