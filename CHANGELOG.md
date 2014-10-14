@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+* Enhancements
+  * Update to latest version of Consul package
+
 ## 0.5.2
 
 * Enhancements
