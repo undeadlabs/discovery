@@ -36,6 +36,11 @@ defmodule Discovery.DirectoryTest do
     assert nodes |> Enum.count == 1
   end
 
+  test "add/3 when the directory is not running on the remote node it does not raise" do
+    result = Directory.add(:'reset@undead', Node.self, "router")
+    assert elem(result, 0) == :error
+  end
+
   test "removing a node" do
     Directory.add(:'reset@undead', "router")
     Directory.drop(:'reset@undead')
