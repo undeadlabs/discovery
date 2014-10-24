@@ -1,9 +1,14 @@
 # Changelog
 
+## 0.5.4
+
+* Bug Fixes
+  * Prevent crash when NodeConnector is attempting to add nodes to a Directory on a remote node which is not available or ready yet.
+
 ## 0.5.3
 
 * Enhancements
-  * Update to latest version of Consul package
+  * Update to latest version of Consul package.
 
 ## 0.5.2
 
