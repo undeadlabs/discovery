@@ -36,6 +36,7 @@ defmodule Discovery.Mixfile do
     [
       {:consul, "~> 0.2.0"},
       {:hash_ring_ex, "~> 1.1"},
+      {:inch_ex, only: :docs}
     ]
   end
 
