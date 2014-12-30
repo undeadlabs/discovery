@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.5
+
+* Enhancements
+  * Loosen constraint on required Elixir version
+  * Bump required consul-ex version
+
 ## 0.5.4
 
 * Bug Fixes
