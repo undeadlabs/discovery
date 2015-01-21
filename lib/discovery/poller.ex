@@ -15,6 +15,7 @@ defmodule Discovery.Poller do
 
   @type handler :: atom | {atom, list} | (([Discovery.Service.t]) -> any)
 
+  @wait     "10m"
   @retry_ms 30 * 1000
 
   @spec start_link(binary) :: GenServer.on_start
@@ -47,7 +48,7 @@ defmodule Discovery.Poller do
 
   @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
   def poll(index, service) do
-    Consul.Health.service(index, service)
+    Consul.Health.service(service, index: index, wait: @wait)
   end
 
   #
