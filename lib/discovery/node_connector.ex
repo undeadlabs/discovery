@@ -1,7 +1,7 @@
 #
 # The MIT License (MIT)
 #
-# Copyright (c) 2014 Undead Labs, LLC
+# Copyright (c) 2014-2015 Undead Labs, LLC
 #
 
 defmodule Discovery.NodeConnector do
