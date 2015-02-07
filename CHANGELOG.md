@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.7
+
+* Bug Fixes
+  * Handlers added to Poller and NodeConnector will now be restarted on crash
+
+## 0.5.6
+
+* Enhancements
+  * Updated to latest version of Consul-Ex
+
 ## 0.5.5
 
 * Enhancements
