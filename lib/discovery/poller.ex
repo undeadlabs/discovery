@@ -36,8 +36,8 @@ defmodule Discovery.Poller do
     Task.async(__MODULE__, :poll, [index, service])
   end
 
-  @spec add_handler(pid, handler) :: :ok
-  def add_handler(poller, handler, args \\ []) when is_pid(poller) do
+  @spec add_handler(pid, atom) :: :ok
+  def add_handler(poller, handler, args \\ []) when is_pid(poller) and is_atom(handler) do
     GenServer.call(poller, {:add_handler, handler, args})
   end
 
@@ -67,16 +67,26 @@ defmodule Discovery.Poller do
   def init([service, handlers]) do
     {:ok, em} = GenEvent.start_link
 
-    Enum.each handlers, fn
+    registered_handlers = Enum.map handlers, fn
       {module, args} ->
-        :ok = GenEvent.add_handler(em, module, args)
+        handler = {module, make_ref()}
+        :ok     = GenEvent.add_mon_handler(em, handler, args)
+        {handler, args}
       fun when is_function(fun, 1) ->
-        :ok = GenEvent.add_handler(em, Discovery.Handler.Generic, [fun])
+        handler = {Discovery.Handler.Generic, make_ref}
+        args    = [fun]
+        :ok     = GenEvent.add_mon_handler(em, handler, args)
+        {handler, args}
       module ->
-        :ok = GenEvent.add_handler(em, module, [])
+        handler = {module, make_ref()}
+        args    = []
+        :ok     = GenEvent.add_mon_handler(em, handler, args)
+        {handler, args}
     end
 
-    {:ok, %{em: em, service: service, services: [], index: nil, task: nil}, 0}
+    handler_map = Enum.into registered_handlers, HashDict.new
+
+    {:ok, %{em: em, service: service, services: [], index: nil, task: nil, handlers: handler_map}, 0}
   end
 
   def init([service]) do
@@ -142,8 +152,26 @@ defmodule Discovery.Poller do
     {:noreply, %{state | task: nil, index: nil}, @retry_ms}
   end
 
-  def handle_call({:add_handler, module, args}, _from, %{em: em, services: services} = state) do
-    :ok = GenEvent.add_handler(em, module, args)
-    {:reply, GenEvent.sync_notify(em, {:services, services}), state}
+  def handle_info({:gen_event_EXIT, _, :normal}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, _, {:swapped, _, _}}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, _, :shutdown}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, handler, _}, %{em: em, handlers: handlers} = state) do
+    args = HashDict.get(handlers, handler)
+    :ok  = GenEvent.add_mon_handler(em, handler, args)
+    {:noreply, state}
+  end
+
+  def handle_call({:add_handler, module, args}, _from, %{em: em, services: services, handlers: handlers} = state) do
+    handler   = {module, make_ref()}
+    :ok       = GenEvent.add_mon_handler(em, handler, args)
+    new_state = %{state | handlers: HashDict.put(handlers, handler, args)}
+    reply     = GenEvent.sync_notify(em, {:services, services})
+    {:reply, reply, new_state}
   end
 end
