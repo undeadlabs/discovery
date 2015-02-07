@@ -128,7 +128,7 @@ defmodule Discovery.NodeConnector do
 
   defp register_handler(em, module, args \\ []) do
     ref = make_ref()
-    case GenEvent.add_handler(em, {module, ref}, args) do
+    case GenEvent.add_mon_handler(em, {module, ref}, args) do
       :ok   -> {:ok, ref}
       error -> error
     end
@@ -145,19 +145,25 @@ defmodule Discovery.NodeConnector do
   def init(handlers) do
     retry_ms  = Application.get_env(:discovery, :retry_connect_ms, 5000)
     {:ok, em} = GenEvent.start_link
-    Enum.each handlers, fn
+
+    registered_handlers = Enum.map handlers, fn
       {module, args} ->
-        register_handler(em, module, args)
+        {:ok, ref} = register_handler(em, module, args)
+        {{module, ref}, args}
       module when is_atom(module) ->
-        register_handler(em, module)
+        {:ok, ref} = register_handler(em, module)
+        {{module, ref}, []}
     end
-    {:ok, %{retry_ms: retry_ms, timers: %{}, em: em}}
+
+    handler_map = Enum.into registered_handlers, HashDict.new
+
+    {:ok, %{retry_ms: retry_ms, timers: %{}, em: em, handlers: handler_map}}
   end
 
-  def handle_call({:add_handler, module, args}, _, %{em: em} = state) do
+  def handle_call({:add_handler, module, args}, _, %{em: em, handlers: handlers} = state) do
     case register_handler(em, module, args) do
       {:ok, ref} ->
-        {:reply, {:ok, {module, ref}}, state}
+        {:reply, {:ok, {module, ref}}, %{state | handlers: HashDict.put(handlers, {module, ref}, args)}}
       error ->
         {:reply, error, state}
     end
@@ -180,8 +186,10 @@ defmodule Discovery.NodeConnector do
     end
   end
 
-  def handle_call({:remove_handler, module, ref}, _, %{em: em} = state) do
-    {:reply, unregister_handler(em, module, ref), state}
+  def handle_call({:remove_handler, module, ref}, _, %{em: em, handlers: handlers} = state) do
+    reply     = unregister_handler(em, module, ref)
+    new_state = %{state | handlers: HashDict.delete(handlers, {module, ref})}
+    {:reply, reply, new_state}
   end
 
   def handle_info({:retry_connect, node}, state) do
@@ -189,8 +197,10 @@ defmodule Discovery.NodeConnector do
     {:noreply, new_state}
   end
 
-  def handle_info({:nodedown, node}, state) do
+  def handle_info({:nodedown, node}, %{em: em} = state) do
     Logger.warn "Unexpected disconnect from node: #{node}"
+    NodeConnector.Handler.notify_disconnect(em, node)
+
     case Directory.has_node?(node) do
       true ->
         new_state = attempt_connect(node, state)
@@ -198,5 +208,20 @@ defmodule Discovery.NodeConnector do
       false ->
         {:noreply, state}
     end
+  end
+
+  def handle_info({:gen_event_EXIT, _, :normal}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, _, {:swapped, _, _}}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, _, :shutdown}, state) do
+    {:noreply, state}
+  end
+  def handle_info({:gen_event_EXIT, handler, _}, %{em: em, handlers: handlers} = state) do
+    args = HashDict.get(handlers, handler)
+    :ok  = GenEvent.add_mon_handler(em, handler, args)
+    {:noreply, state}
   end
 end
