@@ -27,7 +27,7 @@ defmodule Discovery.Service do
   def from_health([]), do: []
   def from_health(checks) when is_list(checks), do: Enum.map(checks, &from_health/1)
   def from_health(%{"Node" => node, "Checks" => checks, "Service" => service}) do
-    %__MODULE__{name: service["Service"], port: service["Port"], tags: extract_tags(service),
+    %__MODULE__{name: service["Service"], port: service["Port"], tags: extract_tags(service, node),
       status: extract_status(checks, service), node: %Discovery.Node{address: node["Address"], name: node["Node"]}}
   end
 
@@ -44,11 +44,18 @@ defmodule Discovery.Service do
     end
   end
 
-  defp extract_tags(%{"Tags" => nil}), do: []
-  defp extract_tags(%{"Tags" => tags}), do: extract_tags(tags, [])
-  defp extract_tags([], tags), do: tags
-  defp extract_tags([tag|rest], acc) do
-    extract_tags(rest, [extract_tag(tag)|acc])
+  defp extract_tags(%{"Tags" => nil}, node), do: extract_tags([], [], node)
+  defp extract_tags(%{"Tags" => tags}, node), do: extract_tags(tags, [], node)
+  defp extract_tags([], tags, node) do
+      if( nil == tags[:otp_name] ) do
+        address = node["Address"]
+        host    = node["Node"]
+        tags = [{:otp_name, node["Node"] <> "@" <> node["Address"]} | tags]
+      end
+      tags
+  end 
+  defp extract_tags([tag|rest], acc, node) do
+    extract_tags(rest, [extract_tag(tag)|acc], node)
   end
 
   defp extract_status([], _), do: nil
