@@ -138,9 +138,16 @@ defmodule Discovery.Handler.NodeConnect do
   # Private
   #
 
-  defp otp_name(%{tags: []}), do: nil
-  defp otp_name(%{tags: tags}) when is_list(tags) do
+  defp otp_name(%{tags: [], node: node}) when node != nil do
+    %Discovery.Node{address: address, name: host} = node
+    String.to_atom(host <> "@" <> address)
+  end
+
+  defp otp_name(%{tags: tags, node: node}) when is_list(tags) do
     case Keyword.get(tags, :otp_name) do
+      nil when node != nil ->
+        %Discovery.Node{address: address, name: host} = node
+        String.to_atom(host <> "@" <> address)
       nil ->
         nil
       name when is_binary(name) ->
