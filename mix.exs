@@ -34,7 +34,7 @@ defmodule Discovery.Mixfile do
 
   defp deps do
     [
-      {:consul, "~> 1.0"},
+      {:consul, git: "https://github.com/cjimison/consul-ex.git", branch: "master"},
       {:hash_ring_ex, "~> 1.1"},
       {:inch_ex, only: :docs}
     ]
