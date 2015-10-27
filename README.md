@@ -199,4 +199,4 @@ Discovery.select("my_application", :random, fn(result) -> IO.inspect result end)
 
 ## Authors
 
-Jamie Winsor (<jamie@undeadlabs.com>)
+Jamie Winsor (<jamie@vialstudios.com>)
