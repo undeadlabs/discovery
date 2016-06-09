@@ -74,10 +74,11 @@ defmodule Discovery.NodeConnector do
       state
     else
       Logger.debug "Attempting to connect to node: #{node}"
+      new_timers =
       case Node.connect(node) do
         result when result in [false, :ignored] ->
           timer      = :erlang.send_after(retry_ms, self, {:retry_connect, node})
-          new_timers = Dict.put(timers, node, timer)
+          Dict.put(timers, node, timer)
         true ->
           Logger.info "Connected to: #{node}"
           NodeConnector.Handler.notify_connect(em, node)
@@ -92,10 +93,10 @@ defmodule Discovery.NodeConnector do
                   Node.monitor(node, true)
                   :erlang.cancel_timer(timer)
               end
-              new_timers = Dict.put(timers, node, nil)
+              Dict.put(timers, node, nil)
             {:error, _} ->
               timer      = :erlang.send_after(retry_ms, self, {:retry_connect, node})
-              new_timers = Dict.put(timers, node, timer)
+              Dict.put(timers, node, timer)
           end
       end
 
@@ -105,12 +106,12 @@ defmodule Discovery.NodeConnector do
 
   defp attempt_disconnect(node, %{em: em, timers: timers} = state) do
     Logger.debug "Attempting to disconnect from node: #{node}"
+    new_timers =
     case Dict.pop(timers, node) do
-      {nil, new_timers} ->
-        new_timers = new_timers
+      {nil, new_timers} -> new_timers
       {timer, new_timers} ->
         :erlang.cancel_timer(timer)
-        new_timers = new_timers
+        new_timers
     end
 
     try do

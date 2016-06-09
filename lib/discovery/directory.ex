@@ -155,27 +155,28 @@ defmodule Discovery.Directory do
   end
 
   def handle_call({:add, node, service}, _, %{nodes: nodes, services: services, rings: rings} = state) do
+    ring = 
     case Dict.fetch(rings, service) do
-      {:ok, ring} ->
-        ring = ring
-      :error ->
-        ring = start_ring
+      {:ok, ring} -> ring
+      :error -> start_ring
     end
 
     :ok = Discovery.Ring.add(ring.pid, node)
 
+    new_services =
     case Dict.fetch(services, service) do
       :error ->
-        new_services = Dict.put(services, service, HashSet.new |> Set.put(node))
+        Dict.put(services, service, HashSet.new |> Set.put(node))
       {:ok, nodes} ->
-        new_services = Dict.put(services, service, Set.put(nodes, node))
+        Dict.put(services, service, Set.put(nodes, node))
     end
 
+    new_nodes =
     case Dict.fetch(nodes, node) do
       :error ->
-        new_nodes = Dict.put(nodes, node, HashSet.new |> Set.put(service))
+        Dict.put(nodes, node, HashSet.new |> Set.put(service))
       {:ok, node_services} ->
-        new_nodes = Dict.put(nodes, node, Set.put(node_services, service))
+        Dict.put(nodes, node, Set.put(node_services, service))
     end
 
     {:reply, :ok, %{state | nodes: new_nodes, services: new_services, rings: Dict.put(rings, service, ring)}}

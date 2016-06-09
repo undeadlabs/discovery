@@ -104,11 +104,10 @@ defmodule Discovery.Poller do
     if enabled? do
       case Consul.Health.service(service) do
         {:ok, %{body: body} = response} ->
+          new_services =
           case Discovery.Service.from_health(body) do
-            [] = result ->
-              new_services = result
-            services ->
-              new_services = services
+            [] = result -> result
+            services -> services
           end
           :ok       = notify_change(new_services, state)
           new_state = %{state | services: new_services, index: consul_index(response)}
@@ -127,11 +126,10 @@ defmodule Discovery.Poller do
   def handle_info({ref, results}, %{task: %Task{ref: ref}} = state) do
     case results do
       {:ok, %{body: body} = response} ->
+        new_services =
         case Discovery.Service.from_health(body) do
-          [] = result ->
-            new_services = result
-          services ->
-            new_services = services
+          [] = result -> result
+          services -> services
         end
         :ok       = notify_change(new_services, state)
         new_state = %{state | services: new_services, index: consul_index(response)}
