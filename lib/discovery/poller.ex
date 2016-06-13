@@ -46,7 +46,7 @@ defmodule Discovery.Poller do
     Application.get_env(:discovery, :enable_polling, true)
   end
 
-  @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
+  @spec poll(binary | integer, binary | atom) :: {:ok | :error, HTTPoison.Response.t | binary}
   def poll(index, service) do
     Consul.Health.service(service, index: index, wait: @wait)
   end
@@ -114,7 +114,7 @@ defmodule Discovery.Poller do
           task      = async_poll(new_state.index, service)
           {:noreply, %{new_state | task: task}}
         {:error, error} ->
-          Logger.warn "Error polling service status from Consul: #{inspect error}"
+          _ = Logger.warn "Error polling service status from Consul: #{inspect error}"
           {:noreply, state, @retry_ms}
       end
     else

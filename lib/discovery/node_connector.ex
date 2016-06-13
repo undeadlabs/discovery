@@ -73,22 +73,23 @@ defmodule Discovery.NodeConnector do
       NodeConnector.Handler.notify_connect(em, node)
       state
     else
-      Logger.debug "Attempting to connect to node: #{node}"
+      _ = Logger.debug "Attempting to connect to node: #{node}"
       new_timers =
       case Node.connect(node) do
         result when result in [false, :ignored] ->
           timer      = :erlang.send_after(retry_ms, self, {:retry_connect, node})
           Dict.put(timers, node, timer)
         true ->
-          Logger.info "Connected to: #{node}"
+          _ = Logger.info "Connected to: #{node}"
           NodeConnector.Handler.notify_connect(em, node)
           case Directory.add(node, Node.self, Discovery.apps) do
             :ok ->
+              _ = 
               case Dict.fetch(timers, node) do
-                {:ok, nil} ->
-                  :ok
                 :error ->
                   Node.monitor(node, true)
+                {:ok, nil} ->
+                  :ok
                 {:ok, timer} ->
                   Node.monitor(node, true)
                   :erlang.cancel_timer(timer)
@@ -105,12 +106,12 @@ defmodule Discovery.NodeConnector do
   end
 
   defp attempt_disconnect(node, %{em: em, timers: timers} = state) do
-    Logger.debug "Attempting to disconnect from node: #{node}"
+    _ = Logger.debug "Attempting to disconnect from node: #{node}"
     new_timers =
     case Dict.pop(timers, node) do
       {nil, new_timers} -> new_timers
       {timer, new_timers} ->
-        :erlang.cancel_timer(timer)
+        _ = :erlang.cancel_timer(timer)
         new_timers
     end
 
@@ -121,7 +122,7 @@ defmodule Discovery.NodeConnector do
     end
 
     Node.disconnect(node)
-    Logger.info "Disconnected from: #{node}"
+    _ = Logger.info "Disconnected from: #{node}"
     NodeConnector.Handler.notify_disconnect(em, node)
 
     %{state | timers: new_timers}
@@ -199,7 +200,7 @@ defmodule Discovery.NodeConnector do
   end
 
   def handle_info({:nodedown, node}, %{em: em} = state) do
-    Logger.warn "Unexpected disconnect from node: #{node}"
+    _ = Logger.warn "Unexpected disconnect from node: #{node}"
     NodeConnector.Handler.notify_disconnect(em, node)
 
     case Directory.has_node?(node) do

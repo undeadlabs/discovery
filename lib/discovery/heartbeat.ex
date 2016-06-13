@@ -68,7 +68,7 @@ defmodule Discovery.Heartbeat do
   end
 
   def handle_info(:pulse, %{check_id: check_id, interval: interval, timer: timer} = state) do
-    :erlang.cancel_timer(timer)
+    _ = :erlang.cancel_timer(timer)
     send_pulse(check_id)
     new_timer = :erlang.send_after(interval, self, :pulse)
     {:noreply, %{state | timer: new_timer}}

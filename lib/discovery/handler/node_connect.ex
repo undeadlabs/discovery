@@ -46,6 +46,8 @@ defmodule Discovery.Handler.NodeConnect do
   @spec connect([Service.t]) :: :ok
   def connect([]), do: :ok
   def connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
+    # interesting that this responds with an error but does nothing with it
+    _ = 
     case otp_name(service) do
       nil ->
         {:error, :no_node_name}
