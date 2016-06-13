@@ -31,7 +31,7 @@ defmodule Discovery.Poller do
     GenServer.start_link(__MODULE__, [service, [handler]])
   end
 
-  @spec async_poll(binary | integer, binary) :: Task.t
+  @spec async_poll(binary | integer, binary | atom) :: Task.t
   def async_poll(index, service) do
     Task.async(__MODULE__, :poll, [index, service])
   end
