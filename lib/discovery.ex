@@ -19,10 +19,8 @@ defmodule Discovery do
     Supervisor.start_link(children, opts)
   end
 
-  defdelegate [
-    nodes(service),
-    find(service, hash),
-  ], to: Discovery.Directory
+  defdelegate nodes(service), to: Discovery.Directory
+  defdelegate find(service, hash), to: Discovery.Directory
 
   @doc """
   Returns a list of applications that this process provides.
