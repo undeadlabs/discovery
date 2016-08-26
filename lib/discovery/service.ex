@@ -26,7 +26,7 @@ defmodule Discovery.Service do
   @spec from_health([map] | map) :: [Discovery.Service.t] | Discovery.Service.t
   def from_health([]), do: []
   def from_health(checks) when is_list(checks), do: Enum.map(checks, &from_health/1)
-  def from_health(r) when is_bitstring(r), do: from_health(:jsxn.decode(r))
+  def from_health(r) when is_bitstring(r), do: from_health(:jsx.decode(r, [:return_maps]))
   def from_health(%{"Node" => node, "Checks" => checks, "Service" => service}) do
     %__MODULE__{name: service["Service"], port: service["Port"], tags: extract_tags(service, node),
       status: extract_status(checks, service), node: %Discovery.Node{address: node["Address"], name: node["Node"]}}
@@ -50,9 +50,10 @@ defmodule Discovery.Service do
       if( nil == tags[:otp_name] ) do
         address = node["Address"]
         host    = node["Node"]
-        tags = [{:otp_name, node["Node"] <> "@" <> node["Address"]} | tags]
+        [{:otp_name, node["Node"] <> "@" <> node["Address"]} | tags]
+      else
+          tags
       end
-      tags
   end 
   defp extract_tags([tag|rest], acc, node) do
     extract_tags(rest, [extract_tag(tag)|acc], node)
