@@ -52,7 +52,7 @@ defmodule Discovery do
       [] ->
         fun.({:error, {:no_servers, service}})
       service_nodes ->
-        index = :random.uniform(Enum.count(service_nodes))
+        index = :rand.uniform(Enum.count(service_nodes))
         fun.({:ok, Enum.at(service_nodes, index - 1)})
     end
   end
