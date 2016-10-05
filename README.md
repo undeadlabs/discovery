@@ -63,7 +63,7 @@ defmodule MyApplication.Supervisor do
   use Supervisor
 
   @heartbeat_check "service:my_application"
-  @heartbeat_ttl   10
+  @heartbeat_ttl   10000
 
   def start_link do
     Supervisor.start_link(__MODULE__, [])
@@ -83,7 +83,7 @@ The value for `@heartbeat_check` is composed of two strings separated by a colon
   * The first string is the type of check that we're reporting our status for; in this case a service.
   * The second string is the name of the check which was defined in the service definition above.
 
-The value for `@heartbeat_ttl` a time in seconds for how often to check-in with Consul. I recommend setting this to a few seconds before the TTL configured in the service definition to allow for some breathing room and prevent false service outage blips.
+The value for `@heartbeat_ttl` a time in milliseconds for how often to check-in with Consul. I recommend setting this to a few seconds before the TTL configured in the service definition to allow for some breathing room and prevent false service outage blips.
 
 If you want other OTP nodes to automatically discover and connect to you (more on that later) it is also important to note that a special tag has been added to the service definition above. Tags separated by a colon (`:`) are key/value pairs used by certain handlers. In this case the `Discovery.NodeConnector` will use the value of this key/value pair as the OTP node name to connect to another OTP node.
 
