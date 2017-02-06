@@ -48,8 +48,6 @@ defmodule Discovery.Service do
   defp extract_tags(%{"Tags" => tags}, node), do: extract_tags(tags, [], node)
   defp extract_tags([], tags, node) do
       if( nil == tags[:otp_name] ) do
-        address = node["Address"]
-        host    = node["Node"]
         [{:otp_name, node["Node"] <> "@" <> node["Address"]} | tags]
       else
           tags
