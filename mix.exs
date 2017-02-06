@@ -34,8 +34,8 @@ defmodule Discovery.Mixfile do
 
   defp deps do
     [
-      {:consul, "~> 1.0"},
-      {:hash_ring_ex, "~> 1.1"},
+      {:consul, git: "https://github.com/cjimison/consul-ex.git", branch: "master"},
+      {:hash_ring_ex, git: "https://github.com/whitehole-project/hash-ring-ex.git", branch: "latest-elixir-support"},
       {:inch_ex, only: :docs}
     ]
   end

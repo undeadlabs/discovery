@@ -31,7 +31,7 @@ defmodule Discovery.Poller do
     GenServer.start_link(__MODULE__, [service, [handler]])
   end
 
-  @spec async_poll(binary | integer, binary) :: Task.t
+  @spec async_poll(binary | integer, binary | atom) :: Task.t
   def async_poll(index, service) do
     Task.async(__MODULE__, :poll, [index, service])
   end
@@ -46,7 +46,7 @@ defmodule Discovery.Poller do
     Application.get_env(:discovery, :enable_polling, true)
   end
 
-  @spec poll(binary | integer, binary) :: {:ok | :error, HTTPoison.Response.t | binary}
+  @spec poll(binary | integer, binary | atom) :: {:ok | :error, HTTPoison.Response.t | binary}
   def poll(index, service) do
     Consul.Health.service(service, index: index, wait: @wait)
   end
@@ -104,18 +104,17 @@ defmodule Discovery.Poller do
     if enabled? do
       case Consul.Health.service(service) do
         {:ok, %{body: body} = response} ->
+          new_services =
           case Discovery.Service.from_health(body) do
-            [] = result ->
-              new_services = result
-            services ->
-              new_services = services
+            [] = result -> result
+            services -> services
           end
           :ok       = notify_change(new_services, state)
           new_state = %{state | services: new_services, index: consul_index(response)}
           task      = async_poll(new_state.index, service)
           {:noreply, %{new_state | task: task}}
         {:error, error} ->
-          Logger.warn "Error polling service status from Consul: #{inspect error}"
+          _ = Logger.warn "Error polling service status from Consul: #{inspect error}"
           {:noreply, state, @retry_ms}
       end
     else
@@ -127,11 +126,10 @@ defmodule Discovery.Poller do
   def handle_info({ref, results}, %{task: %Task{ref: ref}} = state) do
     case results do
       {:ok, %{body: body} = response} ->
+        new_services =
         case Discovery.Service.from_health(body) do
-          [] = result ->
-            new_services = result
-          services ->
-            new_services = services
+          [] = result -> result
+          services -> services
         end
         :ok       = notify_change(new_services, state)
         new_state = %{state | services: new_services, index: consul_index(response)}

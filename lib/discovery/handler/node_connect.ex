@@ -46,6 +46,8 @@ defmodule Discovery.Handler.NodeConnect do
   @spec connect([Service.t]) :: :ok
   def connect([]), do: :ok
   def connect([%Service{name: name, status: status} = service|rest]) when status in [@passing, @warning] do
+    # interesting that this responds with an error but does nothing with it
+    _ = 
     case otp_name(service) do
       nil ->
         {:error, :no_node_name}
@@ -138,9 +140,16 @@ defmodule Discovery.Handler.NodeConnect do
   # Private
   #
 
-  defp otp_name(%{tags: []}), do: nil
-  defp otp_name(%{tags: tags}) when is_list(tags) do
+  defp otp_name(%{tags: [], node: node}) when node != nil do
+    %Discovery.Node{address: address, name: host} = node
+    String.to_atom(host <> "@" <> address)
+  end
+
+  defp otp_name(%{tags: tags, node: node}) when is_list(tags) do
     case Keyword.get(tags, :otp_name) do
+      nil when node != nil ->
+        %Discovery.Node{address: address, name: host} = node
+        String.to_atom(host <> "@" <> address)
       nil ->
         nil
       name when is_binary(name) ->

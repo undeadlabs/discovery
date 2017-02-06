@@ -21,12 +21,10 @@ defmodule Discovery.Ring do
     HashRing.start(replicas: Application.get_env(:discovery, :replica_count, 128))
   end
 
-  defdelegate [
-    add(ring, node),
-    drop(ring, node),
-    stop(ring),
-    set_mode(ring, mode),
-  ], to: HashRing
+  defdelegate  add(ring, node),     to: HashRing
+  defdelegate  drop(ring, node),    to: HashRing
+  defdelegate  stop(ring),          to: HashRing
+  defdelegate  set_mode(ring, mode),to: HashRing
 
   @doc """
   Find a node in a service ring with the given hash key.
