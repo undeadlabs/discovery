@@ -5,10 +5,10 @@ defmodule Discovery.Mixfile do
     [
       app: :discovery,
       version: "0.5.7",
-      elixir: "~> 1.0",
-      deps: deps,
-      package: package,
-      description: description
+      elixir: "~> 1.4 or ~> 1.3 or ~> 1.0",
+      deps: deps(),
+      package: package(),
+      description: description()
     ]
   end
 
